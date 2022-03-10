@@ -1,11 +1,11 @@
 # NICE-SLAM-with-Adaptive-Feature-Grids-
 ## Milestones
 
-\- [ ] Correctly allocate sparse feature voxels based on ground truth camera pose and depth image. Avoid using any dense arrays for storage (No need to use NICE-SLAM) => don’t need the source code
+- [ ] Correctly allocate sparse feature voxels based on ground truth camera pose and depth image. Avoid using any dense arrays for storage (No need to use NICE-SLAM) => don’t need the source code
 
-\- [ ] integrate into NICE-SLAM, features can be updated correctly, able to work on e.g. Replica dataset
+- [ ] integrate into NICE-SLAM, features can be updated correctly, able to work on e.g. Replica dataset
 
-\- [ ] Test on kitti dataset, with whole pipeline (tracking & mapping) working correctly
+- [ ] Test on kitti dataset, with whole pipeline (tracking & mapping) working correctly
 
 ## Papers
 
