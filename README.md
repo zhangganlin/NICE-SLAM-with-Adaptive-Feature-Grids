@@ -13,3 +13,7 @@
 
 ### [DI-Fusion: Online Implicit 3D Reconstruction with Deep Priors](https://arxiv.org/pdf/2012.05551.pdf)
 
+## [DI-Fusion code](https://github.com/huangjh-pub/di-fusion)
+
+### [Real-time 3D Reconstruction at Scale using Voxel Hashing](https://niessnerlab.org/papers/2013/4hashing/niessner2013hashing.pdf)
+
