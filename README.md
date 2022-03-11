@@ -53,10 +53,9 @@
     
     $$
     o^{0}_{\textbf p} = f^{0}(\textbf p, \phi^{1}_{\theta}(\textbf p)) \\
-    
     o^{1}_{\textbf p} = f^{1}(\textbf p, \phi^{1}_{\theta}(\textbf p)) \\
     \Delta o^{1}_{\textbf p} = f^{2}(\textbf p, \phi^{1}_{\theta}(\textbf p), \phi^{2}_{\theta}(\textbf p)) \\
-    o_{\textbf p} = o^{1}_{\textbf p} + \Delta o^{1}_{\textbf p}
+    o_{\textbf p} = o^{1}_{\textbf p} + \Delta o^{1}_{\textbf p} \\
     $$
     , where 
 
