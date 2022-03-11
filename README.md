@@ -116,30 +116,29 @@
       \mathcal L_p = {1 \over M}\sum^{M}_{m=1}|I_m - \hat I_m|.
       $$
       
-    
     * Modified geometric loss
       $$
       \mathcal L_{g\_var} = {1 \over M_t}\sum^{M_t}_{m=1}{|D_m - \hat D^c_m| \over \sqrt{\hat D^c_{var}}} + {|D_m - \hat D^f_m| \over \sqrt{\hat D^f_{var}}}.
       $$
     
   * Reconstruction
-
+  
     * First: Optimize mid-level $\phi^1_{\theta}$ Using $\mathcal L^f_g$ 
-
+  
     * Second: Optimize $\phi^1_{\theta}$, $\phi^2_{\theta}$ features with the same fine-level depth loss $\mathcal{L}^f_g$ 
-
+  
     * Third: Optimize feature grids at all levels and **color decoder** using the following loss
       $$
       \min_{\theta, \omega}(\mathcal L^c_g + \mathcal L^f_g + \lambda_p\mathcal L_p)
       $$
-
+  
   * Camera Tracking: optimize modified geometric loss $\mathcal L_{g\_var}$ 
     $$
     \min_{\bf R, t}(\mathcal L_{g\_var} + \lambda_{pt}\mathcal L_p)
     $$
-
+  
   * Robustness to Dynamic Objects: remove pixel from optimization if the loss is larger than 10 times of the median loss of all pixels
-
+  
 * Keyframe selection: only incloude keyframes which have visual overlap with the current cframe when optimizing the scene geometry => only optimize necessary parameters. 
 
 * 
@@ -152,7 +151,7 @@
 
 ### [DI-Fusion code](https://github.com/huangjh-pub/di-fusion)
 
-### [KITTI Dataset](https://paperswithcode.com/dataset/kitti)
+### Dataset
 
-
+http://www.cvlibs.net/datasets/kitti/index.php
 
