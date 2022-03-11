@@ -2,16 +2,16 @@
 
 ## Milestones
 
-- [x] **March 07: ** Group formation and project selection
+- [x] **March 07:** Group formation and project selection
 - [ ] **March 13**: Proposal
-- [ ] **March 14: ** Proposal presentations
-- [ ] **March 14 - March 21: ** Literature Reviewing
+- [ ] **March 14:** Proposal presentations
+- [ ] **March 14 - March 21:** Literature Reviewing
 - [ ] **March 14 - April 25:** Correctly allocate sparse feature voxels based on ground truth camera pose and depth image. Avoid using any dense arrays for storage (No need to use NICE-SLAM) => don’t need the source code
-- [ ] **April 25: ** Midterm presentations
+- [ ] **April 25:** Midterm presentations
 - [ ] **April 25 - May 09:** Integrate into NICE-SLAM, features can be updated correctly, able to work on e.g. Replica dataset
 - [ ] **May 09 - May 16:** Test on kitti dataset, with whole pipeline (tracking & mapping) working correctly
-- [ ] **May 30: ** Final project presentations
-- [ ] **June 13: ** Final project reports
+- [ ] **May 30:** Final project presentations
+- [ ] **June 13:** Final project reports
 
 ## Links
 
@@ -41,7 +41,7 @@
 
 #### **Method**:
 
-![Screen Shot 2022-03-11 at 5.19.22 PM](assets/Screen Shot 2022-03-11 at 5.19.22 PM.png)
+![Screen Shot 2022-03-11 at 5.19.22 PM](assets/slam.png)
 
 * Hierarchical Feature Grid: The latent vector in ConvONet
 
@@ -50,6 +50,7 @@
   * Each point represents a vector (feature including geometric ($\theta$) and color ($\omega$) information)
 
   * Level geometrtic representation
+    
     $$
     o^{0}_{\textbf p} = f^{0}(\textbf p, \phi^{1}_{\theta}(\textbf p)) \\
     
@@ -68,6 +69,7 @@
     * $o^2_{\textbf p}$ is the residual obtained by a concatenation of the mid-level and fine-level features to capture high-frequency details
 
 * Color representation: 
+  
   $$
   c_{\textbf p} = g_{\omega}(\textbf p, \psi_{\omega}(\textbf p)) \\
   $$
@@ -90,15 +92,15 @@
 
     * the probability of the existence for each point is represented as the probability that the ray can reach the point
 
-    $$
-    w^c_i = o^0_{\textbf p_i}\prod_{j=1}^{i-1}(1-o^0_{\textbf p_j}), w^f_i = o_{\textbf p_i}\prod_{j=1}^{i-1}(1-o_{\textbf p_j})\\
-    \hat D^c = \sum^{N}_{i=1}w^c_id_i, \hat D^f = \sum^{N}_{i=1}w^f_id_i, \hat I = \sum^{N}_{i=1}w^f_ic_i\\
-    $$
+      $$
+      w^c_i = o^0_{\textbf p_i}\prod_{j=1}^{i-1}(1-o^0_{\textbf p_j}), w^f_i = o_{\textbf p_i}\prod_{j=1}^{i-1}(1-o_{\textbf p_j})\\
+      \hat D^c = \sum^{N}_{i=1}w^c_id_i, \hat D^f = \sum^{N}_{i=1}w^f_id_i, \hat I = \sum^{N}_{i=1}w^f_ic_i\\
+      $$
 
     * the variance is also calculated:
-      $$
-      \hat D^c_{var} = \sum^{N}_{i=1}w^c_i(\hat D^c - d_i)^2, \hat D^f_{var} = \sum^{N}_{i=1}w^f_i(\hat D^f - d_i)^2
-      $$
+        $$
+        \hat D^c_{var} = \sum^{N}_{i=1}w^c_i(\hat D^c - d_i)^2, \hat D^f_{var} = \sum^{N}_{i=1}w^f_i(\hat D^f - d_i)^2
+        $$
 
 * Optimization
 
@@ -141,7 +143,6 @@
   
 * Keyframe selection: only incloude keyframes which have visual overlap with the current cframe when optimizing the scene geometry => only optimize necessary parameters. 
 
-* 
 
 ### [DI-Fusion: Online Implicit 3D Reconstruction with Deep Priors](https://arxiv.org/pdf/2012.05551.pdf)
 
@@ -151,7 +152,7 @@
 
 ### [DI-Fusion code](https://github.com/huangjh-pub/di-fusion)
 
-### Dataset
+### [Dataset](http://www.cvlibs.net/datasets/kitti/index.php) 
 
-http://www.cvlibs.net/datasets/kitti/index.php
+
 
