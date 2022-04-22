@@ -3,8 +3,8 @@
 ## Milestones
 
 - [x] **March 07:** Group formation and project selection
-- [ ] **March 13**: Proposal
-- [ ] **March 14:** Proposal presentations
+- [x] **March 13**: Proposal
+- [x] **March 14:** Proposal presentations
 - [ ] **March 14 - March 21:** Literature Reviewing
 - [ ] **March 14 - April 25:** Correctly allocate sparse feature voxels based on ground truth camera pose and depth image. Avoid using any dense arrays for storage (No need to use NICE-SLAM) => don’t need the source code
 - [ ] **April 25:** Midterm presentations
@@ -17,7 +17,7 @@
 
 ### [NICE-SLAM: Neural Implicit Scalable Encoding for SLAM](https://pengsongyou.github.io/media/nice-slam/NICE-SLAM.pdf)
 
-#### **Abstract & Intro**: 
+#### **Abstract & Intro**:
 
 * SLAM: simultaneous localization and mapping
 * Requirement
@@ -52,7 +52,7 @@
   * Level geometrtic representation
     
     $$
-    o^{0}_{\textbf p} = f^{0}(\textbf p, \phi^{1}_{\theta}(\textbf p)) \\
+    o^{0}_{\textbf p} = f^{0}(\textbf p, \phi^{0}_{\theta}(\textbf p)) \\
     o^{1}_{\textbf p} = f^{1}(\textbf p, \phi^{1}_{\theta}(\textbf p)) \\
     \Delta o^{1}_{\textbf p} = f^{2}(\textbf p, \phi^{1}_{\theta}(\textbf p), \phi^{2}_{\theta}(\textbf p)) \\
     o_{\textbf p} = o^{1}_{\textbf p} + \Delta o^{1}_{\textbf p} \\
@@ -63,7 +63,7 @@
     * occupancy value $o_{\textbf p}$ represents the probability of point $\textbf p$ that it is contained in the surface
     * $\phi$ represents tri-linear interpolation
     * $f$ are the neural networks (decoder)
-    * $o^0_{\textbf p}$ is the occupancy obtained by mid-level which is used to predict the **unobserved part**. Note that for coarse-level, learnable Gaussian positional encoding is used for $\textbf p$ 
+    * $o^0_{\textbf p}$ is the occupancy obtained by coarse-level which is used to predict the **unobserved part**. Note that for coarse-level, learnable Gaussian positional encoding is used for $\textbf p$ 
     * $o^1_{\textbf p}$ is the occupancy obtained by mid-level
     * $o^2_{\textbf p}$ is the residual obtained by a concatenation of the mid-level and fine-level features to capture high-frequency details
 
@@ -142,8 +142,27 @@
   
 * Keyframe selection: only incloude keyframes which have visual overlap with the current cframe when optimizing the scene geometry => only optimize necessary parameters. 
 
-
 ### [DI-Fusion: Online Implicit 3D Reconstruction with Deep Priors](https://arxiv.org/pdf/2012.05551.pdf)
+
+#### Abstract & Intro
+
+* Drawbacks of previous work:
+  * Costs a huge amount of memory
+  * Uncertainties caused by sensor noise or scan ambiguities such as view occlusions
+* Recent work
+  * Use network to regress the signed distance function (implicit function)
+
+#### Method
+
+* Input & output
+  * input: sequence of RGB-D
+  * output: 3D scene
+* PLIVox Representation
+  * $\mathcal V= \{{\bf v_m = (c_m \in \mathbb R^3, l_m \in \mathbb R^L,} w_m\in \mathbb N) \}$ (Center, latent vector, observation weight)
+  * $\bf y$ coordinate inside the voxel
+  * probabilistic signed distance function: distribution of the signed distance given the position $\bf y$ => Gaussian with $\mu, \sigma$ 
+  * 
+* 
 
 ### [Real-time 3D Reconstruction at Scale using Voxel Hashing](https://niessnerlab.org/papers/2013/4hashing/niessner2013hashing.pdf)
 
