@@ -203,6 +203,7 @@ class NICE_SLAM():
         color_grid_len = cfg['grid_len']['color']
         self.color_grid_len = color_grid_len
 
+        #TODO MODIFY c
         c = {}
         c_dim = cfg['model']['c_dim']
         xyz_len = self.bound[:, 1]-self.bound[:, 0]

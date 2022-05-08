@@ -43,6 +43,7 @@ class VoxelHashingMap(object):
                             idx % self.n_xyz[2]], dim=-1)
 
     def allocate_blocks(self,count:int):
+
         # allocate more spaces if access new voxels
         target_n_occupied = self.n_occupied + count
         # allocate new slots
@@ -355,6 +356,8 @@ class Mapper(object):
             if self.frustum_feature_selection:
                 masked_c_grad = {}
                 mask_c2w = cur_c2w
+            
+            #TODO Adjust c here
             for key, val in c.items():
                 if not self.frustum_feature_selection:
                     val = Variable(val.to(device), requires_grad=True)
