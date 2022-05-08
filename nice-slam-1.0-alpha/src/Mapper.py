@@ -12,6 +12,63 @@ from src.common import (get_camera_from_tensor, get_samples,
 from src.utils.datasets import get_dataset
 from src.utils.Visualizer import Visualizer
 
+class VoxelHashingMap(object):
+    def __init__(self,grid_resolution,init_size,feature_len):
+        """
+        :param grid_resolution (3, ) resolution in three directions (x,y,z)
+        :param init_size (scalar) initial size of the voxels
+        :param feature len (scalar) length of the feature
+        """
+        self.vox_idx = torch.arange(grid_resolution[0] * grid_resolution[1] * grid_resolution[2])
+        self.voxels = torch.zeros(init_size,feature_len).normal_(mean=0, std=0.01)
+        self.vox_pos = torch.zeros(init_size,dtype=torch.long)
+        self.n_xyz = grid_resolution
+        self.n_occupied = 0
+        self.latent_dim = feature_len
+        
+    def linearize_id(self, xyz: torch.Tensor):
+        """
+        :param xyz (N, 3) long id
+        :return: (N, ) lineraized id to be accessed in self.vox_idx
+        """
+        return xyz[:, 2] + self.n_xyz[-1] * xyz[:, 1] + (self.n_xyz[-1] * self.n_xyz[-2]) * xyz[:, 0]
+
+    def unlinearize_id(self, idx: torch.Tensor):
+        """
+        :param idx: (N, ) linearized id for access in self.indexer
+        :return: xyz (N, 3) id to be indexed in 3D
+        """
+        return torch.stack([idx // (self.n_xyz[1] * self.n_xyz[2]),
+                            (idx // self.n_xyz[2]) % self.n_xyz[1],
+                            idx % self.n_xyz[2]], dim=-1)
+
+    def allocate_blocks(self,count:int):
+        # allocate more spaces if access new voxels
+        target_n_occupied = self.n_occupied + count
+        # allocate new slots
+        if self.voxels.size(0) < target_n_occupied:
+            new_size = self.voxels.size(0)
+            while new_size < target_n_occupied:
+                new_size *= 2
+            new_voxels = torch.empty((new_size, self.latent_dim), dtype=torch.float32)
+            new_voxels[:self.voxels.size(0)] = self.voxels
+            new_vox_pos = torch.ones((new_size, ), dtype=torch.long) * -1
+            new_vox_pos[:self.voxels.size(0)] = self.vox_pos
+
+            new_voxels[self.voxels.size(0):].zero_().normal_(mean=0, std=0.01)
+            self.voxels = new_voxels
+            self.vox_pos = new_vox_pos
+    def get_feature_at(self,coordinate:torch.Tensor):
+        """
+        :param coordinate (N, 3) long id
+        :return: (N, dim) corresponding feature
+        """
+        idx = self.linearize_id(coordinate)
+
+        valid_mask =  (idx<self.voxels.size(0))
+        ret = torch.zeros(coordinate.size(0),self.latent_dim)
+        ret[valid_mask] = self.voxels[idx[valid_mask]]
+        return ret
 
 class Mapper(object):
     """
