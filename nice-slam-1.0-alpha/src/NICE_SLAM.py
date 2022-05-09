@@ -2,7 +2,7 @@ from src.Tracker import Tracker
 from src.utils.Logger import Logger
 from src.utils.Renderer import Renderer
 from src.utils.Mesher import Mesher
-from src.Mapper import Mapper
+from src.Mapper import Mapper, VoxelHashingMap
 from src.utils.datasets import get_dataset
 from src import config
 import os
@@ -11,6 +11,7 @@ import numpy as np
 import torch
 import torch.multiprocessing as mp
 import torch.multiprocessing
+
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 
@@ -32,6 +33,9 @@ class NICE_SLAM():
         self.verbose = cfg['verbose']
         self.dataset = cfg['dataset']
         self.coarse_bound_enlarge = cfg['model']['coarse_bound_enlarge']
+        #TODO: Change to config
+        self.grid_init_size = 1000
+
         if args.output is None:
             self.output = cfg['data']['output']
         else:
@@ -215,7 +219,9 @@ class NICE_SLAM():
             coarse_val_shape[0], coarse_val_shape[2] = coarse_val_shape[2], coarse_val_shape[0]
             self.coarse_val_shape = coarse_val_shape
             val_shape = [1, c_dim, *coarse_val_shape]
-            coarse_val = torch.zeros(val_shape).normal_(mean=0, std=0.01)
+            # change the coarse_val
+            # coarse_val = torch.zeros(val_shape).normal_(mean=0, std=0.01)
+            coarse_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim)
             c[coarse_key] = coarse_val
 
         middle_key = 'grid_middle'
@@ -223,7 +229,8 @@ class NICE_SLAM():
         middle_val_shape[0], middle_val_shape[2] = middle_val_shape[2], middle_val_shape[0]
         self.middle_val_shape = middle_val_shape
         val_shape = [1, c_dim, *middle_val_shape]
-        middle_val = torch.zeros(val_shape).normal_(mean=0, std=0.01)
+        # middle_val = torch.zeros(val_shape).normal_(mean=0, std=0.01)
+        middle_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim)
         c[middle_key] = middle_val
 
         fine_key = 'grid_fine'
@@ -231,7 +238,8 @@ class NICE_SLAM():
         fine_val_shape[0], fine_val_shape[2] = fine_val_shape[2], fine_val_shape[0]
         self.fine_val_shape = fine_val_shape
         val_shape = [1, c_dim, *fine_val_shape]
-        fine_val = torch.zeros(val_shape).normal_(mean=0, std=0.0001)
+        # fine_val = torch.zeros(val_shape).normal_(mean=0, std=0.0001)
+        fine_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim)
         c[fine_key] = fine_val
 
         color_key = 'grid_color'
@@ -239,7 +247,8 @@ class NICE_SLAM():
         color_val_shape[0], color_val_shape[2] = color_val_shape[2], color_val_shape[0]
         self.color_val_shape = color_val_shape
         val_shape = [1, c_dim, *color_val_shape]
-        color_val = torch.zeros(val_shape).normal_(mean=0, std=0.01)
+        # color_val = torch.zeros(val_shape).normal_(mean=0, std=0.01)
+        color_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim)
         c[color_key] = color_val
 
         self.shared_c = c

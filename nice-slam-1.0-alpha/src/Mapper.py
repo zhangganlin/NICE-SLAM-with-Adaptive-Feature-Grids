@@ -13,11 +13,13 @@ from src.utils.datasets import get_dataset
 from src.utils.Visualizer import Visualizer
 
 class VoxelHashingMap(object):
-    def __init__(self,grid_resolution,init_size,feature_len):
+    def __init__(self,grid_resolution,init_size,feature_len,bound_min,voxel_size):
         """
         :param grid_resolution (3, ) resolution in three directions (x,y,z)
         :param init_size (scalar) initial size of the voxels
         :param feature len (scalar) length of the feature
+        :param bound_min (double) tensor (3,)
+        :param voxel_size: double
         """
         self.vox_idx = torch.arange(grid_resolution[0] * grid_resolution[1] * grid_resolution[2])
         self.voxels = torch.zeros(init_size,feature_len).normal_(mean=0, std=0.01)
@@ -25,22 +27,76 @@ class VoxelHashingMap(object):
         self.n_xyz = grid_resolution
         self.n_occupied = 0
         self.latent_dim = feature_len
+        self.voxel_size = voxel_size
+        self.bound_min = bound_min
+        self.bound_max = self.bound_min + self.voxel_size * torch.tensor(self.n_xyz)
         
-    def linearize_id(self, xyz: torch.Tensor):
+    def id3d_to_id1d(self, xyz: torch.Tensor):
         """
         :param xyz (N, 3) long id
-        :return: (N, ) lineraized id to be accessed in self.vox_idx
+        :return: (N, ) lineraized id to be accessed in self.indexer
         """
-        return xyz[:, 2] + self.n_xyz[-1] * xyz[:, 1] + (self.n_xyz[-1] * self.n_xyz[-2]) * xyz[:, 0]
-
-    def unlinearize_id(self, idx: torch.Tensor):
+        ret = xyz[:, 2] + self.n_xyz[-1] * xyz[:, 1] + (self.n_xyz[-1] * self.n_xyz[-2]) * xyz[:, 0]
+        return ret.long()
+        
+    def id1d_to_id3d(self, idx: torch.Tensor):
         """
         :param idx: (N, ) linearized id for access in self.indexer
         :return: xyz (N, 3) id to be indexed in 3D
         """
-        return torch.stack([idx // (self.n_xyz[1] * self.n_xyz[2]),
-                            (idx // self.n_xyz[2]) % self.n_xyz[1],
-                            idx % self.n_xyz[2]], dim=-1)
+        ret = torch.stack([idx // (self.n_xyz[1] * self.n_xyz[2]),
+                        (idx // self.n_xyz[2]) % self.n_xyz[1],
+                        idx % self.n_xyz[2]], dim=-1)
+        return ret.long()
+    
+    def point3d_to_id3d(self, xyz: torch.Tensor):
+        xyz_zeroed = xyz - self.bound_min.unsqueeze(0)
+        xyz_normalized = xyz_zeroed / self.voxel_size
+        grid_id = torch.floor(xyz_normalized).long()
+        return grid_id
+
+    def point3d_to_id1d(self, xyz: torch.Tensor):
+        xyz_zeroed = xyz - self.bound_min.unsqueeze(0)
+        xyz_normalized = xyz_zeroed / self.voxel_size
+        grid_id = torch.floor(xyz_normalized).long()
+        grid_id = self._linearize_id(grid_id)
+        return grid_id
+    
+    def id1d_to_point3d(self, idx: torch.Tensor):
+        n_xyz_id = self._unlinearize_id(idx)
+        corner_xyz = n_xyz_id*self.voxel_size+self.bound_min
+        return corner_xyz
+    
+    def id3d_to_point3d(self, n_xyz: torch.Tensor):
+        corner_xyz = n_xyz*self.voxel_size+self.bound_min
+        return corner_xyz
+
+    def find_neighbors(self, points:torch.Tensor):
+        """
+        :param points: (N, 3) 3d coordinates of target points
+        :return: 8 neighbors for each points (id1d)
+        """
+        neighbor = torch.Tensor([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1], [1, 1, 1]])
+        voxel_xyz_id = self.point3d_to_id3d(points)
+        res = []
+        
+        for i in range(len(voxel_xyz_id)):
+            xyz_id = voxel_xyz_id[i]
+            near_voxel_xyz_id = xyz_id+neighbor
+            # voxel features
+            near_voxel_linear_id = self.id3d_to_id1d(near_voxel_xyz_id)
+            res.append(near_voxel_linear_id)
+        return torch.cat(res)
+    
+    def if_invalid_allocate(self,neighbors:torch.Tensor):
+        neighbors_vox_idx = self.vox_idx[neighbors]
+        invalid_neighbors = neighbors[neighbors_vox_idx == -1] 
+        to_be_allocate_amount = invalid_neighbors.size()
+        self.allocate_blocks(to_be_allocate_amount)
+        for i in range(to_be_allocate_amount):
+            self.vox_idx[invalid_neighbors[i]] = self.n_occupied+i
+            self.vox_pos[self.n_occupied+i] = invalid_neighbors[i]
+        self.n_occupied += to_be_allocate_amount        
 
     def allocate_blocks(self,count:int):
 
@@ -59,6 +115,8 @@ class VoxelHashingMap(object):
             new_voxels[self.voxels.size(0):].zero_().normal_(mean=0, std=0.01)
             self.voxels = new_voxels
             self.vox_pos = new_vox_pos
+        
+            
     def get_feature_at(self,coordinate:torch.Tensor):
         """
         :param coordinate (N, 3) long id
@@ -284,8 +342,243 @@ class Mapper(object):
         selected_keyframe_list = list(np.random.permutation(
             np.array(selected_keyframe_list))[:k])
         return selected_keyframe_list
-
+    
     def optimize_map(self, num_joint_iters, lr_factor, idx, cur_gt_color, cur_gt_depth, gt_cur_c2w, keyframe_dict, keyframe_list, cur_c2w):
+        """
+        Mapping iterations. Sample pixels from selected keyframes,
+        then optimize scene representation and camera poses(if local BA enables).
+
+        Args:
+            num_joint_iters (int): number of mapping iterations.
+            lr_factor (float): the factor to times on current lr.
+            idx (int): the index of current frame
+            cur_gt_color (tensor): gt_color image of the current camera.
+            cur_gt_depth (tensor): gt_depth image of the current camera.
+            gt_cur_c2w (tensor): groundtruth camera to world matrix corresponding to current frame.
+            keyframe_dict (list): list of keyframes info dictionary.
+            keyframe_list (list): list ofkeyframe index.
+            cur_c2w (tensor): the estimated camera to world matrix of current frame. 
+
+        Returns:
+            cur_c2w/None (tensor/None): return the updated cur_c2w, return None if no BA
+        """
+        H, W, fx, fy, cx, cy = self.H, self.W, self.fx, self.fy, self.cx, self.cy
+        device = self.device
+        c = self.c
+        cfg = self.cfg
+
+        if len(keyframe_dict) == 0:
+            optimize_frame = []
+        else:
+            if self.keyframe_selection_method == 'global':
+                num = self.mapping_window_size-2
+                optimize_frame = random_select(len(self.keyframe_dict)-1, num)
+            elif self.keyframe_selection_method == 'overlap':
+                num = self.mapping_window_size-2
+                optimize_frame = self.keyframe_selection_overlap(
+                    cur_gt_color, cur_gt_depth, cur_c2w, keyframe_dict[:-1], num)
+
+        # add the last keyframe and the current frame(use -1 to denote)
+        if len(keyframe_list) > 0:
+            optimize_frame = optimize_frame + [len(keyframe_list)-1]
+        optimize_frame += [-1]
+
+        if self.save_selected_keyframes_info:
+            keyframes_info = []
+            for id, frame in enumerate(optimize_frame):
+                if frame != -1:
+                    frame_idx = keyframe_list[frame]
+                    tmp_gt_c2w = keyframe_dict[frame]['gt_c2w']
+                    tmp_est_c2w = keyframe_dict[frame]['est_c2w']
+                else:
+                    frame_idx = idx
+                    tmp_gt_c2w = gt_cur_c2w
+                    tmp_est_c2w = cur_c2w
+                keyframes_info.append(
+                    {'idx': frame_idx, 'gt_c2w': tmp_gt_c2w, 'est_c2w': tmp_est_c2w})
+            self.selected_keyframes[idx] = keyframes_info
+
+        pixs_per_image = self.mapping_pixels//len(optimize_frame)
+
+        decoders_para_list = []
+        coarse_grid_para = []
+        middle_grid_para = []
+        fine_grid_para = []
+        color_grid_para = []
+        gt_depth_np = cur_gt_depth.cpu().numpy()
+        if self.nice:
+            if self.frustum_feature_selection:
+                masked_c_grad = {}
+                mask_c2w = cur_c2w
+            
+            #TODO Adjust c here
+            for key, val in c.items():
+                if not self.frustum_feature_selection:
+                    val.voxels = Variable(val.voxels.to(device),requires_grad=True)
+                    
+                    val = Variable(val.to(device), requires_grad=True)
+                    c[key] = val
+                    if key == 'grid_coarse':
+                        coarse_grid_para.append(val)
+                    elif key == 'grid_middle':
+                        middle_grid_para.append(val)
+                    elif key == 'grid_fine':
+                        fine_grid_para.append(val)
+                    elif key == 'grid_color':
+                        color_grid_para.append(val)
+
+                else:
+                    mask = self.get_mask_from_c2w(
+                        mask_c2w, key, val.shape[2:], gt_depth_np)
+                    mask = torch.from_numpy(mask).permute(2, 1, 0).unsqueeze(
+                        0).unsqueeze(0).repeat(1, val.shape[1], 1, 1, 1)
+                    val = val.to(device)
+                    # val_grad is the optimizable part, other parameters will be fixed
+                    val_grad = val[mask].clone()
+                    val_grad = Variable(val_grad.to(
+                        device), requires_grad=True)
+                    masked_c_grad[key] = val_grad
+                    masked_c_grad[key+'mask'] = mask
+                    if key == 'grid_coarse':
+                        coarse_grid_para.append(val_grad)
+                    elif key == 'grid_middle':
+                        middle_grid_para.append(val_grad)
+                    elif key == 'grid_fine':
+                        fine_grid_para.append(val_grad)
+                    elif key == 'grid_color':
+                        color_grid_para.append(val_grad)
+
+        if self.nice:
+            if not self.fix_fine:
+                decoders_para_list += list(
+                    self.decoders.fine_decoder.parameters())
+            if not self.fix_color:
+                decoders_para_list += list(
+                    self.decoders.color_decoder.parameters())
+   
+        if self.nice:
+            optimizer = torch.optim.Adam([{'params': decoders_para_list, 'lr': 0}, 
+                                          {'params': coarse_grid_para, 'lr': 0}, 
+                                          {'params': middle_grid_para, 'lr': 0}, 
+                                          {'params': fine_grid_para, 'lr': 0}, 
+                                          {'params': color_grid_para, 'lr': 0}])
+
+        for joint_iter in range(num_joint_iters):
+            if self.nice:
+                if self.frustum_feature_selection:
+                    for key, val in c.items():
+                        if (self.coarse_mapper and 'coarse' in key) or \
+                        ((not self.coarse_mapper) and ('coarse' not in key)):
+                            val_grad = masked_c_grad[key]
+                            mask = masked_c_grad[key+'mask']
+                            val = val.to(device)
+                            val[mask] = val_grad
+                            c[key] = val
+
+                if self.coarse_mapper:
+                    self.stage = 'coarse'
+                elif joint_iter <= int(num_joint_iters*self.middle_iter_ratio):
+                    self.stage = 'middle'
+                elif joint_iter <= int(num_joint_iters*self.fine_iter_ratio):
+                    self.stage = 'fine'
+                else:
+                    self.stage = 'color'
+
+                optimizer.param_groups[0]['lr'] = cfg['mapping']['stage'][self.stage]['decoders_lr']*lr_factor
+                optimizer.param_groups[1]['lr'] = cfg['mapping']['stage'][self.stage]['coarse_lr']*lr_factor
+                optimizer.param_groups[2]['lr'] = cfg['mapping']['stage'][self.stage]['middle_lr']*lr_factor
+                optimizer.param_groups[3]['lr'] = cfg['mapping']['stage'][self.stage]['fine_lr']*lr_factor
+                optimizer.param_groups[4]['lr'] = cfg['mapping']['stage'][self.stage]['color_lr']*lr_factor
+                if self.BA:
+                    if self.stage == 'color':
+                        optimizer.param_groups[5]['lr'] = self.BA_cam_lr
+
+            # if (not (idx == 0 and self.no_vis_on_first_frame)) and ('Demo' not in self.output):
+            #     self.visualizer.vis(
+            #         idx, joint_iter, cur_gt_depth, cur_gt_color, cur_c2w, self.c, self.decoders)
+
+            
+            batch_rays_d_list = []
+            batch_rays_o_list = []
+            batch_gt_depth_list = []
+            batch_gt_color_list = []
+
+            camera_tensor_id = 0
+            for frame in optimize_frame:
+                if frame != -1:
+                    gt_depth = keyframe_dict[frame]['depth'].to(device)
+                    gt_color = keyframe_dict[frame]['color'].to(device)
+                    c2w = keyframe_dict[frame]['est_c2w']
+
+                else:
+                    gt_depth = cur_gt_depth.to(device)
+                    gt_color = cur_gt_color.to(device)
+                    c2w = cur_c2w
+
+                batch_rays_o, batch_rays_d, batch_gt_depth, batch_gt_color = get_samples(
+                    0, H, 0, W, pixs_per_image, H, W, fx, fy, cx, cy, c2w, gt_depth, gt_color, self.device)
+                batch_rays_o_list.append(batch_rays_o.float())
+                batch_rays_d_list.append(batch_rays_d.float())
+                batch_gt_depth_list.append(batch_gt_depth.float())
+                batch_gt_color_list.append(batch_gt_color.float())
+
+            batch_rays_d = torch.cat(batch_rays_d_list)
+            batch_rays_o = torch.cat(batch_rays_o_list)
+            batch_gt_depth = torch.cat(batch_gt_depth_list)
+            batch_gt_color = torch.cat(batch_gt_color_list)
+
+            if self.nice:
+                # should pre-filter those out of bounding box depth value
+                with torch.no_grad():
+                    det_rays_o = batch_rays_o.clone().detach().unsqueeze(-1)  # (N, 3, 1)
+                    det_rays_d = batch_rays_d.clone().detach().unsqueeze(-1)  # (N, 3, 1)
+                    t = (self.bound.unsqueeze(0).to(
+                        device)-det_rays_o)/det_rays_d
+                    t, _ = torch.min(torch.max(t, dim=2)[0], dim=1)
+                    inside_mask = t >= batch_gt_depth
+                batch_rays_d = batch_rays_d[inside_mask]
+                batch_rays_o = batch_rays_o[inside_mask]
+                batch_gt_depth = batch_gt_depth[inside_mask]
+                batch_gt_color = batch_gt_color[inside_mask]
+
+            related_3dpoints = self.renderer.sample_batch_ray( batch_rays_d, 
+                                                 batch_rays_o, device, self.stage, 
+                                                 gt_depth=None if self.coarse_mapper else batch_gt_depth)
+            
+            #TODO to do voxel into the voxelhashingmap, notice: coarse case may be different
+            
+            
+            optimizer.zero_grad()
+            ret = self.renderer.render_batch_ray(c, self.decoders, device, self.stage)
+            depth, uncertainty, color = ret
+
+            depth_mask = (batch_gt_depth > 0)
+            loss = torch.abs(
+                batch_gt_depth[depth_mask]-depth[depth_mask]).sum()
+            if ((not self.nice) or (self.stage == 'color')):
+                color_loss = torch.abs(batch_gt_color - color).sum()
+                weighted_color_loss = self.w_color_loss*color_loss
+                loss += weighted_color_loss
+            
+
+            loss.backward(retain_graph=False)
+            optimizer.step()
+            optimizer.zero_grad()
+
+            # put selected and updated features back to the grid
+            if self.nice and self.frustum_feature_selection:
+                for key, val in c.items():
+                    if (self.coarse_mapper and 'coarse' in key) or \
+                    ((not self.coarse_mapper) and ('coarse' not in key)):
+                        val_grad = masked_c_grad[key]
+                        mask = masked_c_grad[key+'mask']
+                        val = val.detach()
+                        val[mask] = val_grad.clone().detach()
+                        c[key] = val
+
+        return None
+
+    def optimize_map_dense(self, num_joint_iters, lr_factor, idx, cur_gt_color, cur_gt_depth, gt_cur_c2w, keyframe_dict, keyframe_list, cur_c2w):
         """
         Mapping iterations. Sample pixels from selected keyframes,
         then optimize scene representation and camera poses(if local BA enables).
@@ -360,6 +653,8 @@ class Mapper(object):
             #TODO Adjust c here
             for key, val in c.items():
                 if not self.frustum_feature_selection:
+                    val.voxels = Variable(val.voxels.to(device),requires_grad=True)
+                    
                     val = Variable(val.to(device), requires_grad=True)
                     c[key] = val
                     if key == 'grid_coarse':
