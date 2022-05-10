@@ -83,8 +83,8 @@ class NICE_SLAM():
         self.mapping_cnt = torch.zeros((1)).int()  # counter for mapping
         self.mapping_cnt.share_memory_()
         for key, val in self.shared_c.items():
-            val.voxels = val.voxels.to(self.cfg['mapping']['device'])
-            val.voxels.share_memory_()
+            val = val.to(self.cfg['mapping']['device'])
+            val.share_memory_()
             self.shared_c[key] = val
         self.shared_decoders = self.shared_decoders.to(
             self.cfg['mapping']['device'])

@@ -187,6 +187,11 @@ class VoxelHashingMap(object):
         self.voxels = self.voxels.to(device)
         self.device = device
         return self
+    
+    def share_memory_(self):
+        self.vox_idx.share_memory_()
+        self.voxels.share_memory_()
+        self.vox_pos.share_memory_()
 
 class Mapper(object):
     """
@@ -473,7 +478,8 @@ class Mapper(object):
             #TODO Adjust c here
             for key, val in c.items():
                 if not self.frustum_feature_selection:
-                    val.voxels = Variable(val.voxels.to(device),requires_grad=True)                    
+                    val.voxels = Variable(val.voxels.to(device),requires_grad=True)
+                    val.device = device                    
                     c[key] = val
                     if key == 'grid_coarse':
                         coarse_grid_para.append(val.voxels)
@@ -488,8 +494,8 @@ class Mapper(object):
                     mask = self.get_mask_from_c2w(
                         mask_c2w, key, val.n_xyz, gt_depth_np)
                     mask = torch.from_numpy(mask).permute(2, 1, 0).unsqueeze(
-                        0).unsqueeze(0).repeat(1, val.shape[1], 1, 1, 1)
-                    val.voxels = val.voxels.to(device)
+                        0).unsqueeze(0).repeat(1, val.latent_dim, 1, 1, 1)
+                    val = val.to(device)
                     # val_grad is the optimizable part, other parameters will be fixed
                     val_grad = val[mask].clone()
                     val_grad = Variable(val_grad.to(
@@ -721,8 +727,7 @@ class Mapper(object):
             for key, val in c.items():
                 if not self.frustum_feature_selection:
                     val.voxels = Variable(val.voxels.to(device),requires_grad=True)
-                    
-                    val = Variable(val.to(device), requires_grad=True)
+                    val.device = device                    
                     c[key] = val
                     if key == 'grid_coarse':
                         coarse_grid_para.append(val)
