@@ -21,7 +21,7 @@ class VoxelHashingMap(object):
         :param bound_min (double) tensor (3,)
         :param voxel_size: double
         """
-        self.vox_idx = torch.arange(grid_resolution[0] * grid_resolution[1] * grid_resolution[2])
+        self.vox_idx = -torch.ones(grid_resolution[0] * grid_resolution[1] * grid_resolution[2]).long()
         self.voxels = torch.zeros(init_size,feature_len).normal_(mean=0, std=0.01)
         self.vox_pos = torch.zeros(init_size,dtype=torch.long)
         self.n_xyz = grid_resolution
@@ -78,9 +78,10 @@ class VoxelHashingMap(object):
         :return: 8 neighbors for each points (id1d) (N(8-m),)
         """
         neighbor = torch.Tensor([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1], [1, 1, 1]])
+        neighbor = neighbor.to(self.device)
         voxel_xyz_id = self.point3d_to_id3d(points)
         res = []
-        for i in range(voxel_xyz_id.size[0]):
+        for i in range(voxel_xyz_id.shape[0]):
             xyz_id = voxel_xyz_id[i]
             near_voxel_xyz_id = xyz_id+neighbor 
             # voxel features
@@ -100,9 +101,10 @@ class VoxelHashingMap(object):
         :return: 8 neighbors features for each points  (8N, dim)
         """
         neighbor = torch.Tensor([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1], [1, 1, 1]])
+        neighbor = neighbor.to(self.device)
         voxel_xyz_id = self.point3d_to_id3d(points)
         idx = []
-        for i in range(voxel_xyz_id.size[0]):
+        for i in range(voxel_xyz_id.shape[0]):
             xyz_id = voxel_xyz_id[i]
             near_voxel_xyz_id = xyz_id+neighbor 
             idx.append(near_voxel_xyz_id)
@@ -116,7 +118,8 @@ class VoxelHashingMap(object):
         coordinate3d = self.id3d_to_point3d(idx)
         
         idx = self.id3d_to_id1d(idx[valid_mask])
-        res_features = torch.zeros([points.shape[0]*8, self.latent_dim])
+        res_features = torch.zeros([points.shape[0]*8, self.latent_dim]).to(self.device)
+        
         res_features[valid_mask] = self.voxels[idx]
         
         return res_features, coordinate3d
@@ -124,7 +127,7 @@ class VoxelHashingMap(object):
     def if_invalid_allocate(self,neighbors:torch.Tensor):
         neighbors_vox_idx = self.vox_idx[neighbors]
         invalid_neighbors = neighbors[neighbors_vox_idx == -1] 
-        to_be_allocate_amount = invalid_neighbors.size()
+        to_be_allocate_amount = invalid_neighbors.shape[0]
         self.allocate_blocks(to_be_allocate_amount)
         for i in range(to_be_allocate_amount):
             self.vox_idx[invalid_neighbors[i]] = self.n_occupied+i
@@ -177,21 +180,49 @@ class VoxelHashingMap(object):
         # N*8
         distances = distances.squeeze(-1)
         
-        weight = 1/distances
+        weight = 1.0/distances
         weight = weight / torch.sum(weight, axis = 1)[:, None]
-        weight = torch.nan_to_num(weight,nan=1.0)
+        weight = torch.nan_to_num(weight,nan=1.0).float()
+        
+        print(neighbors_feature.type())
+        print(weight.type())
         
         return torch.einsum("ijk,ij->ik",neighbors_feature,weight)
+    
+    def get_feature_by_id3d_mask(self,mask):
+        
+        id1d_mask = mask.reshape(self.n_xyz[0]*self.n_xyz[1]*self.n_xyz[2])
+        
+
+        id1d = id1d_mask.nonzero().squeeze(-1)
+        self.if_invalid_allocate(id1d)
+        
+        return self.voxels[self.vox_idx[id1d]]
+    
+    def put_feature_by_id3d_mask(self,mask,feature):
+        id1d_mask = mask.reshape(self.n_xyz[0]*self.n_xyz[1]*self.n_xyz[2])
+        id1d = id1d_mask.nonzero().squeeze(-1)
+        self.voxels[self.vox_idx[id1d]] = feature
 
     def to(self, device = 'cuda:0'):
         self.voxels = self.voxels.to(device)
+        self.vox_idx = self.vox_idx.to(device)
+        self.vox_pos = self.vox_pos.to(device)
+        self.bound_min = self.bound_min.to(device)
+        self.bound_max = self.bound_max.to(device)  
         self.device = device
+        return self
+    
+    def detach(self):
+        self.voxels.detach()
         return self
     
     def share_memory_(self):
         self.vox_idx.share_memory_()
         self.voxels.share_memory_()
         self.vox_pos.share_memory_()
+        self.bound_min.share_memory_()
+        self.bound_max.share_memory_() 
 
 class Mapper(object):
     """
@@ -283,7 +314,7 @@ class Mapper(object):
         Returns:
             mask (tensor): mask for selected optimizable feature.
             points (tensor): corresponding point coordinates.
-        """
+        """        
         H, W,  fx, fy, cx, cy, = self.H, self.W, self.fx, self.fy, self.cx, self.cy
         X, Y, Z = torch.meshgrid(torch.linspace(self.bound[0][0], self.bound[0][1], val_shape[2]), 
                                  torch.linspace(self.bound[1][0], self.bound[1][1], val_shape[1]), 
@@ -475,7 +506,6 @@ class Mapper(object):
                 masked_c_grad = {}
                 mask_c2w = cur_c2w
             
-            #TODO Adjust c here
             for key, val in c.items():
                 if not self.frustum_feature_selection:
                     val.voxels = Variable(val.voxels.to(device),requires_grad=True)
@@ -491,26 +521,30 @@ class Mapper(object):
                         color_grid_para.append(val.voxels)
 
                 else:
+                    print("line 520")                                       
                     mask = self.get_mask_from_c2w(
                         mask_c2w, key, val.n_xyz, gt_depth_np)
-                    mask = torch.from_numpy(mask).permute(2, 1, 0).unsqueeze(
-                        0).unsqueeze(0).repeat(1, val.latent_dim, 1, 1, 1)
+                                                           
+                    mask = torch.from_numpy(mask).permute(2, 1, 0)
+                    
                     val = val.to(device)
+                                        
                     # val_grad is the optimizable part, other parameters will be fixed
-                    val_grad = val[mask].clone()
-                    val_grad = Variable(val_grad.to(
+                    vox_grad = val.get_feature_by_id3d_mask(mask).clone()
+                    
+                    vox_grad = Variable(vox_grad.to(
                         device), requires_grad=True)
-                    masked_c_grad[key] = val_grad
+                    masked_c_grad[key] = vox_grad
                     masked_c_grad[key+'mask'] = mask
                     if key == 'grid_coarse':
-                        coarse_grid_para.append(val_grad)
+                        coarse_grid_para.append(vox_grad)
                     elif key == 'grid_middle':
-                        middle_grid_para.append(val_grad)
+                        middle_grid_para.append(vox_grad)
                     elif key == 'grid_fine':
-                        fine_grid_para.append(val_grad)
+                        fine_grid_para.append(vox_grad)
                     elif key == 'grid_color':
-                        color_grid_para.append(val_grad)
-
+                        color_grid_para.append(vox_grad)
+                            
         if self.nice:
             if not self.fix_fine:
                 decoders_para_list += list(
@@ -532,11 +566,12 @@ class Mapper(object):
                     for key, val in c.items():
                         if (self.coarse_mapper and 'coarse' in key) or \
                         ((not self.coarse_mapper) and ('coarse' not in key)):
-                            val_grad = masked_c_grad[key]
+                            vox_grad = masked_c_grad[key]
                             mask = masked_c_grad[key+'mask']
-                            val = val.to(device)
-                            val[mask] = val_grad
+                            val = val.to(device)                           
+                            val.put_feature_by_id3d_mask(mask,vox_grad)                                           
                             c[key] = val
+                            print("line 570")     
 
                 if self.coarse_mapper:
                     self.stage = 'coarse'
@@ -639,14 +674,15 @@ class Mapper(object):
             optimizer.zero_grad()
 
             # put selected and updated features back to the grid
+            
             if self.nice and self.frustum_feature_selection:
                 for key, val in c.items():
                     if (self.coarse_mapper and 'coarse' in key) or \
                     ((not self.coarse_mapper) and ('coarse' not in key)):
-                        val_grad = masked_c_grad[key]
+                        vox_grad = masked_c_grad[key]
                         mask = masked_c_grad[key+'mask']
                         val = val.detach()
-                        val[mask] = val_grad.clone().detach()
+                        val.put_feature_by_id3d_mask(mask,vox_grad.clone().detach())
                         c[key] = val
 
         return None
