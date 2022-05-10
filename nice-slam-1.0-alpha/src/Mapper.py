@@ -30,6 +30,7 @@ class VoxelHashingMap(object):
         self.voxel_size = voxel_size
         self.bound_min = bound_min
         self.bound_max = self.bound_min + self.voxel_size * torch.tensor(self.n_xyz)
+        self.device = 'cpu'
         
     def id3d_to_id1d(self, xyz: torch.Tensor):
         """
@@ -147,7 +148,8 @@ class VoxelHashingMap(object):
             new_voxels[self.voxels.size(0):].zero_().normal_(mean=0, std=0.01)
             self.voxels = new_voxels
             self.vox_pos = new_vox_pos
-        
+        if self.device is not 'cpu':
+            self.voxels = self.voxels.to(self.device)
             
     def get_feature_at(self,coordinate:torch.Tensor):
         """
@@ -180,6 +182,11 @@ class VoxelHashingMap(object):
         weight = torch.nan_to_num(weight,nan=1.0)
         
         return torch.einsum("ijk,ij->ik",neighbors_feature,weight)
+
+    def to(self, device = 'cuda:0'):
+        self.voxels = self.voxels.to(device)
+        self.device = device
+        return self
 
 class Mapper(object):
     """
