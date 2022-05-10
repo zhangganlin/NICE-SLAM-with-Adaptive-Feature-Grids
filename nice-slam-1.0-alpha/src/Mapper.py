@@ -479,10 +479,10 @@ class Mapper(object):
 
                 else:
                     mask = self.get_mask_from_c2w(
-                        mask_c2w, key, val.shape[2:], gt_depth_np)
+                        mask_c2w, key, val.n_xyz, gt_depth_np)
                     mask = torch.from_numpy(mask).permute(2, 1, 0).unsqueeze(
                         0).unsqueeze(0).repeat(1, val.shape[1], 1, 1, 1)
-                    val = val.to(device)
+                    val.voxels = val.voxels.to(device)
                     # val_grad is the optimizable part, other parameters will be fixed
                     val_grad = val[mask].clone()
                     val_grad = Variable(val_grad.to(
