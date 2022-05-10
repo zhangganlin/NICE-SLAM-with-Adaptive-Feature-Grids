@@ -74,19 +74,51 @@ class VoxelHashingMap(object):
     def find_neighbors(self, points:torch.Tensor):
         """
         :param points: (N, 3) 3d coordinates of target points
-        :return: 8 neighbors for each points (id1d)
+        :return: 8 neighbors for each points (id1d) (N(8-m),)
         """
         neighbor = torch.Tensor([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1], [1, 1, 1]])
         voxel_xyz_id = self.point3d_to_id3d(points)
         res = []
-        
-        for i in range(len(voxel_xyz_id)):
+        for i in range(voxel_xyz_id.size[0]):
             xyz_id = voxel_xyz_id[i]
-            near_voxel_xyz_id = xyz_id+neighbor
+            near_voxel_xyz_id = xyz_id+neighbor 
             # voxel features
-            near_voxel_linear_id = self.id3d_to_id1d(near_voxel_xyz_id)
-            res.append(near_voxel_linear_id)
-        return torch.cat(res)
+            res.append(near_voxel_xyz_id)
+        # 8N * 3
+        res = torch.cat(res)
+        mask_x = (res[:, 0] < self.n_xyz[0]) & (res[:, 0] > 0)
+        mask_y = (res[:, 1] < self.n_xyz[1]) & (res[:, 1] > 0)
+        mask_z = (res[:, 2] < self.n_xyz[2]) & (res[:, 2] > 0)
+        valid_mask = mask_x & mask_y & mask_z
+        res = self.id3d_to_id1d(res[valid_mask])
+        return res
+
+    def find_neighbors_feature(self, points:torch.Tensor):
+        """
+        :param points: (N, 3) 3d coordinates of target points
+        :return: 8 neighbors features for each points  (8N, dim)
+        """
+        neighbor = torch.Tensor([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1], [1, 1, 1]])
+        voxel_xyz_id = self.point3d_to_id3d(points)
+        idx = []
+        for i in range(voxel_xyz_id.size[0]):
+            xyz_id = voxel_xyz_id[i]
+            near_voxel_xyz_id = xyz_id+neighbor 
+            idx.append(near_voxel_xyz_id)
+        # 8N * 3
+        idx = torch.cat(idx)
+        mask_x = (idx[:, 0] < self.n_xyz[0]) & (idx[:, 0] > 0)
+        mask_y = (idx[:, 1] < self.n_xyz[1]) & (idx[:, 1] > 0)
+        mask_z = (idx[:, 2] < self.n_xyz[2]) & (idx[:, 2] > 0)
+        valid_mask = mask_x & mask_y & mask_z
+        
+        coordinate3d = self.id3d_to_point3d(idx)
+        
+        idx = self.id3d_to_id1d(idx[valid_mask])
+        res_features = torch.zeros([points.shape[0]*8, self.latent_dim])
+        res_features[valid_mask] = self.voxels[idx]
+        
+        return res_features, coordinate3d
     
     def if_invalid_allocate(self,neighbors:torch.Tensor):
         neighbors_vox_idx = self.vox_idx[neighbors]
@@ -120,14 +152,34 @@ class VoxelHashingMap(object):
     def get_feature_at(self,coordinate:torch.Tensor):
         """
         :param coordinate (N, 3) long id
-        :return: (N, dim) corresponding feature
+        :return: (N, dim) corresponding feature, invaild coordinate is 0
         """
-        idx = self.linearize_id(coordinate)
-
-        valid_mask =  (idx<self.voxels.size(0))
+        mask_x = (coordinate[:, 0] < self.bound_max[0]) & (coordinate[:, 0] > self.bound_min[0])
+        mask_y = (coordinate[:, 1] < self.bound_max[1]) & (coordinate[:, 1] > self.bound_min[1])
+        mask_z = (coordinate[:, 2] < self.bound_max[2]) & (coordinate[:, 2] > self.bound_min[2])
+        valid_mask = mask_x & mask_y & mask_z
+        idx = self.id3d_to_id1d(coordinate[valid_mask])
         ret = torch.zeros(coordinate.size(0),self.latent_dim)
-        ret[valid_mask] = self.voxels[idx[valid_mask]]
+        ret[valid_mask] = self.voxels[idx]
         return ret
+    
+    def map_interpolation(self, points:torch.Tensor):
+
+        # N*8*dim
+        neighbors_feature, neighbors_coordinate = self.find_neighbors_feature(points)
+        neighbors_feature = neighbors_feature.reshape([points.shape[0],8,-1]) 
+        neighbors_coordinate = neighbors_coordinate.reshape([points.shape[0],8,-1])
+
+        # N*8*1 = (N*8*3, N*1*3) 
+        distances = torch.cdist(neighbors_coordinate,points[:,None,:],p=2)
+        # N*8
+        distances = distances.squeeze(-1)
+        
+        weight = 1/distances
+        weight = weight / torch.sum(weight, axis = 1)[:, None]
+        weight = torch.nan_to_num(weight,nan=1.0)
+        
+        return torch.einsum("ijk,ij->ik",neighbors_feature,weight)
 
 class Mapper(object):
     """
@@ -414,18 +466,16 @@ class Mapper(object):
             #TODO Adjust c here
             for key, val in c.items():
                 if not self.frustum_feature_selection:
-                    val.voxels = Variable(val.voxels.to(device),requires_grad=True)
-                    
-                    val = Variable(val.to(device), requires_grad=True)
+                    val.voxels = Variable(val.voxels.to(device),requires_grad=True)                    
                     c[key] = val
                     if key == 'grid_coarse':
-                        coarse_grid_para.append(val)
+                        coarse_grid_para.append(val.voxels)
                     elif key == 'grid_middle':
-                        middle_grid_para.append(val)
+                        middle_grid_para.append(val.voxels)
                     elif key == 'grid_fine':
-                        fine_grid_para.append(val)
+                        fine_grid_para.append(val.voxels)
                     elif key == 'grid_color':
-                        color_grid_para.append(val)
+                        color_grid_para.append(val.voxels)
 
                 else:
                     mask = self.get_mask_from_c2w(
@@ -489,9 +539,6 @@ class Mapper(object):
                 optimizer.param_groups[2]['lr'] = cfg['mapping']['stage'][self.stage]['middle_lr']*lr_factor
                 optimizer.param_groups[3]['lr'] = cfg['mapping']['stage'][self.stage]['fine_lr']*lr_factor
                 optimizer.param_groups[4]['lr'] = cfg['mapping']['stage'][self.stage]['color_lr']*lr_factor
-                if self.BA:
-                    if self.stage == 'color':
-                        optimizer.param_groups[5]['lr'] = self.BA_cam_lr
 
             # if (not (idx == 0 and self.no_vis_on_first_frame)) and ('Demo' not in self.output):
             #     self.visualizer.vis(
@@ -545,8 +592,21 @@ class Mapper(object):
                                                  batch_rays_o, device, self.stage, 
                                                  gt_depth=None if self.coarse_mapper else batch_gt_depth)
             
-            #TODO to do voxel into the voxelhashingmap, notice: coarse case may be different
-            
+            if self.stage == 'coarse':
+                neighbors = self.c['grid_coarse'].find_neighbors(related_3dpoints)
+                self.c['grid_coarse'].if_invalid_allocate(neighbors)
+                
+            elif self.stage == 'middle':
+                neighbors = self.c['grid_middle'].find_neighbors(related_3dpoints)
+                self.c['grid_middle'].if_invalid_allocate(neighbors)
+                
+            elif self.stage == 'fine':
+                neighbors = self.c['grid_fine'].find_neighbors(related_3dpoints)
+                self.c['grid_fine'].if_invalid_allocate(neighbors)
+                
+            elif self.stage == 'color':
+                neighbors = self.c['grid_color'].find_neighbors(related_3dpoints)
+                self.c['grid_color'].if_invalid_allocate(neighbors)
             
             optimizer.zero_grad()
             ret = self.renderer.render_batch_ray(c, self.decoders, device, self.stage)

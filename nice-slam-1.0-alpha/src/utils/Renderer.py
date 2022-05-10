@@ -58,7 +58,7 @@ class Renderer(object):
 
         ret = torch.cat(rets, dim=0)
         return ret
-    #TODO: divide the render_batch_ray into two different classes
+
     def sample_batch_ray(self, rays_d, rays_o, device, stage, gt_depth=None):
         """
         Render color, depth and uncertainty of a batch of rays.

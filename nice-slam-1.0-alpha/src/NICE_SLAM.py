@@ -221,7 +221,7 @@ class NICE_SLAM():
             val_shape = [1, c_dim, *coarse_val_shape]
             # change the coarse_val
             # coarse_val = torch.zeros(val_shape).normal_(mean=0, std=0.01)
-            coarse_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim)
+            coarse_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim,self.bound[:,0],coarse_grid_len)
             c[coarse_key] = coarse_val
 
         middle_key = 'grid_middle'
@@ -230,7 +230,7 @@ class NICE_SLAM():
         self.middle_val_shape = middle_val_shape
         val_shape = [1, c_dim, *middle_val_shape]
         # middle_val = torch.zeros(val_shape).normal_(mean=0, std=0.01)
-        middle_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim)
+        middle_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim, self.bound[:,0], middle_grid_len)
         c[middle_key] = middle_val
 
         fine_key = 'grid_fine'
@@ -239,7 +239,7 @@ class NICE_SLAM():
         self.fine_val_shape = fine_val_shape
         val_shape = [1, c_dim, *fine_val_shape]
         # fine_val = torch.zeros(val_shape).normal_(mean=0, std=0.0001)
-        fine_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim)
+        fine_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim, self.bound[:,0], fine_grid_len)
         c[fine_key] = fine_val
 
         color_key = 'grid_color'
@@ -248,7 +248,7 @@ class NICE_SLAM():
         self.color_val_shape = color_val_shape
         val_shape = [1, c_dim, *color_val_shape]
         # color_val = torch.zeros(val_shape).normal_(mean=0, std=0.01)
-        color_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim)
+        color_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim, self.bound[:,0], color_grid_len)
         c[color_key] = color_val
 
         self.shared_c = c
