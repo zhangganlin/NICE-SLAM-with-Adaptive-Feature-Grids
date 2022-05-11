@@ -105,11 +105,29 @@ class VoxelHashingMap(object):
         
         coordinate3d = self.id3d_to_point3d(idx)
         
-        idx = self.id3d_to_id1d(idx[valid_mask])
+        grid_idx = self.id3d_to_id1d(idx[valid_mask])
+        
         res_features = torch.zeros([points.shape[0]*8, self.latent_dim]).to(self.device)
-        
-        res_features[valid_mask] = self.voxels[idx]
-        
+        hashmap_idx = self.vox_idx[grid_idx]    
+        existence_mask = hashmap_idx != -1
+        print("number of existence: ",sum(existence_mask.long()))
+        print("number of unqiue existence: ", (torch.unique(hashmap_idx)).shape)
+        print("max_existence: ",hashmap_idx.max())
+        try:
+            res_features[valid_mask][existence_mask] = self.voxels[hashmap_idx[existence_mask]]
+        except Exception as ep:
+            print(ep)
+            print("Error in line 114:")
+            print("hashmap_idx shape:",hashmap_idx.shape)
+            print("res_features shape:",res_features.shape)
+            print("self.voxels.shape:", self.voxels.shape)
+            print("grid_idx shape: ",grid_idx.shape)
+            print("existence_mask shape: ",existence_mask.shape)
+            print("number of existence: ",sum(existence_mask.long()))
+            print("hashmap_idx[existence_mask] shape:",hashmap_idx[existence_mask].shape)
+            
+            exit()
+
         return res_features, coordinate3d
     
     def if_invalid_allocate(self,neighbors:torch.Tensor):
@@ -157,7 +175,7 @@ class VoxelHashingMap(object):
         return ret
     
     def map_interpolation(self, points:torch.Tensor):
-
+            
         # N*8*dim
         neighbors_feature, neighbors_coordinate = self.find_neighbors_feature(points)
         neighbors_feature = neighbors_feature.reshape([points.shape[0],8,-1]) 
@@ -199,7 +217,7 @@ class VoxelHashingMap(object):
         return self
     
     def detach(self):
-        self.voxels.detach()
+        self.voxels = self.voxels.detach()
         return self
     
     def share_memory_(self):
@@ -208,3 +226,11 @@ class VoxelHashingMap(object):
         self.vox_pos.share_memory_()
         self.bound_min.share_memory_()
         self.bound_max.share_memory_() 
+    
+    def clone(self):
+        self.vox_idx = self.vox_idx.clone()
+        self.voxels = self.voxels.clone()
+        self.vox_pos = self.vox_pos.clone()
+        self.bound_min = self.bound_min.clone()
+        self.bound_max = self.bound_max.clone()
+        return self
