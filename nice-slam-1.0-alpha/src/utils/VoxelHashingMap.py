@@ -10,7 +10,7 @@ class VoxelHashingMap(object):
         :param voxel_size: double
         """
         self.vox_idx = -torch.ones(grid_resolution[0] * grid_resolution[1] * grid_resolution[2]).long()
-        self.voxels = torch.zeros(init_size,feature_len).normal_(mean=0, std=0.01)
+        self.voxels = torch.zeros(init_size,feature_len).normal_(mean=1, std=0.01)
         self.vox_pos = torch.zeros(init_size,dtype=torch.long)
         self.n_xyz = grid_resolution
         self.n_occupied = 0
@@ -76,9 +76,9 @@ class VoxelHashingMap(object):
             res.append(near_voxel_xyz_id)
         # 8N * 3
         res = torch.cat(res)
-        mask_x = (res[:, 0] < self.n_xyz[0]) & (res[:, 0] > 0)
-        mask_y = (res[:, 1] < self.n_xyz[1]) & (res[:, 1] > 0)
-        mask_z = (res[:, 2] < self.n_xyz[2]) & (res[:, 2] > 0)
+        mask_x = (res[:, 0] < self.n_xyz[0]) & (res[:, 0] >= 0)
+        mask_y = (res[:, 1] < self.n_xyz[1]) & (res[:, 1] >= 0)
+        mask_z = (res[:, 2] < self.n_xyz[2]) & (res[:, 2] >= 0)
         valid_mask = mask_x & mask_y & mask_z
         res = self.id3d_to_id1d(res[valid_mask])
         return res
@@ -98,36 +98,31 @@ class VoxelHashingMap(object):
             idx.append(near_voxel_xyz_id)
         # 8N * 3
         idx = torch.cat(idx)
-        mask_x = (idx[:, 0] < self.n_xyz[0]) & (idx[:, 0] > 0)
-        mask_y = (idx[:, 1] < self.n_xyz[1]) & (idx[:, 1] > 0)
-        mask_z = (idx[:, 2] < self.n_xyz[2]) & (idx[:, 2] > 0)
+        mask_x = (idx[:, 0] < self.n_xyz[0]) & (idx[:, 0] >= 0)
+        mask_y = (idx[:, 1] < self.n_xyz[1]) & (idx[:, 1] >= 0)
+        mask_z = (idx[:, 2] < self.n_xyz[2]) & (idx[:, 2] >= 0)
         valid_mask = mask_x & mask_y & mask_z
-        
         coordinate3d = self.id3d_to_point3d(idx)
-        
+
         grid_idx = self.id3d_to_id1d(idx[valid_mask])
-        
+
         res_features = torch.zeros([points.shape[0]*8, self.latent_dim]).to(self.device)
         hashmap_idx = self.vox_idx[grid_idx]    
         existence_mask = hashmap_idx != -1
-        print("number of existence: ",sum(existence_mask.long()))
-        print("number of unqiue existence: ", (torch.unique(hashmap_idx)).shape)
-        print("max_existence: ",hashmap_idx.max())
-        try:
-            res_features[valid_mask][existence_mask] = self.voxels[hashmap_idx[existence_mask]]
-        except Exception as ep:
-            print(ep)
-            print("Error in line 114:")
-            print("hashmap_idx shape:",hashmap_idx.shape)
-            print("res_features shape:",res_features.shape)
-            print("self.voxels.shape:", self.voxels.shape)
-            print("grid_idx shape: ",grid_idx.shape)
-            print("existence_mask shape: ",existence_mask.shape)
-            print("number of existence: ",sum(existence_mask.long()))
-            print("hashmap_idx[existence_mask] shape:",hashmap_idx[existence_mask].shape)
-            
-            exit()
-
+        valid_mask[valid_mask.clone()] = existence_mask
+        res_features[valid_mask]= self.voxels[hashmap_idx[existence_mask]]
+#         try:
+           
+#         except Exception as ep:
+#             print(ep)
+#             print("Error in line 114:")
+#             print("hashmap_idx shape:",hashmap_idx.shape)
+#             print("res_features shape:",res_features.shape)
+#             print("self.voxels.shape:", self.voxels.shape)
+#             print("grid_idx shape: ",grid_idx.shape)
+#             print("existence_mask shape: ",existence_mask.shape)
+#             print("number of existence: ",sum(existence_mask.long()))
+#             print("hashmap_idx[existence_mask] shape:",hashmap_idx[existence_mask].shape)
         return res_features, coordinate3d
     
     def if_invalid_allocate(self,neighbors:torch.Tensor):
