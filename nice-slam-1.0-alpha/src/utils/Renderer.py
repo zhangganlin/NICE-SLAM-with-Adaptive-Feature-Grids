@@ -185,7 +185,7 @@ class Renderer(object):
         #     pts = pts.reshape(-1, 3)
         return pointsf
         
-    def render_batch_ray(self, c, decoders, device, stage):
+    def render_batch_ray(self, c, decoders, device, stage, gt_depth = None):
         """
         Render color, depth and uncertainty of a batch of rays.
 
@@ -205,18 +205,10 @@ class Renderer(object):
         """
 
         N_samples = self.N_samples
-        N_surface = self.N_surface
+        N_surface = 0  if gt_depth is None else self.N_surface
         N_rays = self.N_rays
-
-        print(self.pointsf.shape)
-        # pointsf ([N_rays * (N_samples + N_surface), 3])
-        print("Nsamples",N_samples)
-        print("Nsurface",N_surface)
-        print("Nrays",N_rays)
-        
         
         raw = self.eval_points(self.pointsf, decoders, c, stage, device)
-        print(raw.shape)
         raw = raw.reshape(N_rays, N_samples+N_surface, -1)
 
         depth, uncertainty, color, weights = raw2outputs_nerf_color(
@@ -397,12 +389,18 @@ class Renderer(object):
                 rays_d_batch = rays_d[i:i+ray_batch_size]
                 rays_o_batch = rays_o[i:i+ray_batch_size]
                 if gt_depth is None:
-                    ret = self.render_batch_ray(
-                        c, decoders, rays_d_batch, rays_o_batch, device, stage, gt_depth=None)
+
+                    # ret = self.render_batch_ray(
+                    #     c, decoders, rays_d_batch, rays_o_batch, device, stage, gt_depth=None)
+                    _ = self.renderer.sample_batch_ray( rays_d_batch, rays_o_batch, device, stage, gt_depth=None)
+                    ret= self.render_batch_ray(c, decoders, device, stage, gt_depth=None)
+
                 else:
                     gt_depth_batch = gt_depth[i:i+ray_batch_size]
-                    ret = self.render_batch_ray(
-                        c, decoders, rays_d_batch, rays_o_batch, device, stage, gt_depth=gt_depth_batch)
+                    # ret = self.render_batch_ray(
+                    #     c, decoders, rays_d_batch, rays_o_batch, device, stage, gt_depth=gt_depth_batch)
+                    _ = self.renderer.sample_batch_ray( rays_d_batch, rays_o_batch, device, stage, gt_depth=gt_depth_batch)
+                    ret= self.render_batch_ray(c, decoders, device, stage, gt_depth=gt_depth_batch)
 
                 depth, uncertainty, color = ret
                 depth_list.append(depth.double())

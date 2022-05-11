@@ -104,8 +104,12 @@ class Tracker(object):
             batch_gt_depth = batch_gt_depth[inside_mask]
             batch_gt_color = batch_gt_color[inside_mask]
 
-        ret = self.renderer.render_batch_ray(
-            self.c, self.decoders, batch_rays_d, batch_rays_o,  self.device, stage='color',  gt_depth=batch_gt_depth)
+        # ret = self.renderer.render_batch_ray(
+        #     self.c, self.decoders, batch_rays_d, batch_rays_o,  self.device, stage='color',  gt_depth=batch_gt_depth)
+
+        _ = self.renderer.sample_batch_ray( batch_rays_d, batch_rays_o, self.device, stage='color', gt_depth=batch_gt_depth)
+        ret = self.renderer.render_batch_ray(self.c, self.decoders, self.device, stage='color', gt_depth=batch_gt_depth)
+
         depth, uncertainty, color = ret
 
         uncertainty = uncertainty.detach()
@@ -139,8 +143,9 @@ class Tracker(object):
             self.decoders = copy.deepcopy(self.shared_decoders).to(self.device)
             #TODO modify shared_c
             for key, val in self.shared_c.items():
-                val = val.clone().to(self.device)
-                self.c[key] = val
+                new_val = val.clone()
+                new_val = new_val.to(self.device)
+                self.c[key] = new_val
             self.prev_mapping_idx = self.mapping_idx[0].clone()
 
     def run(self):

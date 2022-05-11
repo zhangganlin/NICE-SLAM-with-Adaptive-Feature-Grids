@@ -12,6 +12,7 @@ from src.common import (get_camera_from_tensor, get_samples,
 from src.utils.datasets import get_dataset
 from src.utils.Visualizer import Visualizer
 from src.utils.VoxelHashingMap import VoxelHashingMap
+from tqdm import tqdm
 
 
 class Mapper(object):
@@ -311,7 +312,6 @@ class Mapper(object):
                         color_grid_para.append(val.voxels)
 
                 else:
-                    print("line 520")                                       
                     mask = self.get_mask_from_c2w(
                         mask_c2w, key, val.n_xyz, gt_depth_np)
                                                            
@@ -350,7 +350,7 @@ class Mapper(object):
                                           {'params': fine_grid_para, 'lr': 0}, 
                                           {'params': color_grid_para, 'lr': 0}])
 
-        for joint_iter in range(num_joint_iters):
+        for joint_iter in tqdm(range(num_joint_iters)):
             if self.nice:
                 if self.frustum_feature_selection:
                     for key, val in c.items():
@@ -361,7 +361,6 @@ class Mapper(object):
                             val = val.to(device)                           
                             val.put_feature_by_id3d_mask(mask,vox_grad)                                           
                             c[key] = val
-                            print("line 570")     
 
                 if self.coarse_mapper:
                     self.stage = 'coarse'
@@ -446,7 +445,8 @@ class Mapper(object):
                 self.c['grid_color'].if_invalid_allocate(neighbors)
             
             optimizer.zero_grad()
-            ret = self.renderer.render_batch_ray(c, self.decoders, device, self.stage)
+            ret = self.renderer.render_batch_ray(c, self.decoders, device, self.stage, 
+                                                 gt_depth=None if self.coarse_mapper else batch_gt_depth)
             depth, uncertainty, color = ret
 
             depth_mask = (batch_gt_depth > 0)
@@ -849,16 +849,23 @@ class Mapper(object):
 
             cur_c2w = self.estimate_c2w_list[idx].to(self.device)
             num_joint_iters = num_joint_iters//outer_joint_iters
+            
+            
+            num_joint_iters = 10
+            
+            
             for outer_joint_iter in range(outer_joint_iters):
-
+                print("line 852: ", outer_joint_iter, "/", outer_joint_iters)
                 self.BA = (len(self.keyframe_list) > 4) and cfg['mapping']['BA'] and (
                     not self.coarse_mapper)
 
                 _ = self.optimize_map(num_joint_iters, lr_factor, idx, gt_color, gt_depth,
                                       gt_c2w, self.keyframe_dict, self.keyframe_list, cur_c2w=cur_c2w)
-                if self.BA:
-                    cur_c2w = _
-                    self.estimate_c2w_list[idx] = cur_c2w
+                
+                print("line 859: finish optimize map")
+                # if self.BA:
+                #     cur_c2w = _
+                #     self.estimate_c2w_list[idx] = cur_c2w
 
                 # add new frame to keyframe set
                 if outer_joint_iter == outer_joint_iters-1:
@@ -874,6 +881,7 @@ class Mapper(object):
             init = False
             # mapping of first frame is done, can begin tracking
             self.mapping_first_frame[0] = 1
+            print(self.mapping_first_frame[0])
 
             if not self.coarse_mapper:
                 if ((not (idx == 0 and self.no_log_on_first_frame)) and idx % self.ckpt_freq == 0) \

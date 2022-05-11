@@ -101,15 +101,17 @@ class VoxelHashingMap(object):
         mask_x = (idx[:, 0] < self.n_xyz[0]) & (idx[:, 0] >= 0)
         mask_y = (idx[:, 1] < self.n_xyz[1]) & (idx[:, 1] >= 0)
         mask_z = (idx[:, 2] < self.n_xyz[2]) & (idx[:, 2] >= 0)
-        valid_mask = mask_x & mask_y & mask_z
+        valid_mask = (mask_x & mask_y & mask_z)
         coordinate3d = self.id3d_to_point3d(idx)
 
         grid_idx = self.id3d_to_id1d(idx[valid_mask])
 
         res_features = torch.zeros([points.shape[0]*8, self.latent_dim]).to(self.device)
         hashmap_idx = self.vox_idx[grid_idx]    
-        existence_mask = hashmap_idx != -1
+        existence_mask = (hashmap_idx != -1).clone()
         valid_mask[valid_mask.clone()] = existence_mask
+        print(points.shape)
+        
         res_features[valid_mask]= self.voxels[hashmap_idx[existence_mask]]
 #         try:
            
@@ -223,9 +225,17 @@ class VoxelHashingMap(object):
         self.bound_max.share_memory_() 
     
     def clone(self):
-        self.vox_idx = self.vox_idx.clone()
-        self.voxels = self.voxels.clone()
-        self.vox_pos = self.vox_pos.clone()
-        self.bound_min = self.bound_min.clone()
-        self.bound_max = self.bound_max.clone()
-        return self
+        
+        new_hash_map = VoxelHashingMap([3,3,3],0,3,torch.tensor([1,2,3]),1)
+        new_hash_map.vox_idx = self.vox_idx.clone()
+        new_hash_map.voxels = self.voxels.clone()
+        new_hash_map.vox_pos = self.vox_pos.clone()
+        new_hash_map.bound_min = self.bound_min.clone()
+        new_hash_map.bound_max = self.bound_max.clone()
+        new_hash_map.n_occupied = self.n_occupied
+        new_hash_map.n_xyz = self.n_xyz
+        new_hash_map.n_occupied = self.n_occupied
+        new_hash_map.latent_dim = self.latent_dim
+        new_hash_map.voxel_size = self.voxel_size
+
+        return new_hash_map

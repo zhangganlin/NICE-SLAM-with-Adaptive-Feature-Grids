@@ -265,6 +265,7 @@ class NICE_SLAM():
         # should wait until the mapping of first frame is finished
         while (1):
             if self.mapping_first_frame[0] == 1:
+                print("tracker start")
                 break
             time.sleep(1)
 
@@ -298,22 +299,18 @@ class NICE_SLAM():
         processes = []
         for rank in range(3):
             if rank == 0:
-                continue
                 p = mp.Process(target=self.tracking, args=(rank, ))
             elif rank == 1:
-                continue
                 p = mp.Process(target=self.mapping, args=(rank, ))
             elif rank == 2:
                 if self.coarse:
-                    self.coarse_mapping(rank)
-                    continue
                     p = mp.Process(target=self.coarse_mapping, args=(rank, ))
                 else:
                     continue
-            # p.start()
-            # processes.append(p)
-        # for p in processes:
-            # p.join()
+            p.start()
+            processes.append(p)
+        for p in processes:
+            p.join()
 
 
 # This part is required by torch.multiprocessing
