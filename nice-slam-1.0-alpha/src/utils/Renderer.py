@@ -208,8 +208,15 @@ class Renderer(object):
         N_surface = self.N_surface
         N_rays = self.N_rays
 
-
+        print(self.pointsf.shape)
+        # pointsf ([N_rays * (N_samples + N_surface), 3])
+        print("Nsamples",N_samples)
+        print("Nsurface",N_surface)
+        print("Nrays",N_rays)
+        
+        
         raw = self.eval_points(self.pointsf, decoders, c, stage, device)
+        print(raw.shape)
         raw = raw.reshape(N_rays, N_samples+N_surface, -1)
 
         depth, uncertainty, color, weights = raw2outputs_nerf_color(

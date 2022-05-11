@@ -4,6 +4,7 @@ from src.utils.Renderer import Renderer
 from src.utils.Mesher import Mesher
 from src.Mapper import Mapper, VoxelHashingMap
 from src.utils.datasets import get_dataset
+from src.utils.VoxelHashingMap import VoxelHashingMap
 from src import config
 import os
 import time
@@ -297,18 +298,22 @@ class NICE_SLAM():
         processes = []
         for rank in range(3):
             if rank == 0:
+                continue
                 p = mp.Process(target=self.tracking, args=(rank, ))
             elif rank == 1:
+                continue
                 p = mp.Process(target=self.mapping, args=(rank, ))
             elif rank == 2:
                 if self.coarse:
+                    self.coarse_mapping(rank)
+                    continue
                     p = mp.Process(target=self.coarse_mapping, args=(rank, ))
                 else:
                     continue
-            p.start()
-            processes.append(p)
-        for p in processes:
-            p.join()
+            # p.start()
+            # processes.append(p)
+        # for p in processes:
+            # p.join()
 
 
 # This part is required by torch.multiprocessing
