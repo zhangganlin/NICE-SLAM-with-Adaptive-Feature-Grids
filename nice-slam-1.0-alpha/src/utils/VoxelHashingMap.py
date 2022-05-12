@@ -101,7 +101,7 @@ class VoxelHashingMap(object):
         mask_z = (res[:, 2] < self.n_xyz[2]) & (res[:, 2] >= 0)
         valid_mask = mask_x & mask_y & mask_z
         res = self.id3d_to_id1d(res[valid_mask])
-
+        # fuck this bullshit!!!
         return torch.unique(res)
 
     def find_neighbors_feature(self, points:torch.Tensor):
