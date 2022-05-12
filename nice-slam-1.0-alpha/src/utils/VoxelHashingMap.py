@@ -101,11 +101,12 @@ class VoxelHashingMap(object):
         mask_z = (res[:, 2] < self.n_xyz[2]) & (res[:, 2] >= 0)
         valid_mask = mask_x & mask_y & mask_z
         res = self.id3d_to_id1d(res[valid_mask])
-        return res
+
+        return torch.unique(res)
 
     def find_neighbors_feature(self, points:torch.Tensor):
         """
-        :param points: (N, 3) 3d coordinates of target points
+        :param points: (N, 3) 3d coordinates of target pointss
         :return: 8 neighbors features for each points  (8N, dim)
         """
         neighbor = torch.Tensor([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1], [1, 1, 1]])
