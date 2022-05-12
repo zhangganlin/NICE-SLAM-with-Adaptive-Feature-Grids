@@ -547,8 +547,11 @@ class Mesher(object):
                         #     c, decoders, rays_d_batch, rays_o_batch, device, 
                         #     stage='color', gt_depth=gt_depth_batch)
 
-                        _ = self.renderer.sample_batch_ray( rays_d_batch, rays_o_batch, device, stage='color', gt_depth=gt_depth_batch)
-                        depth, uncertainty, color = self.renderer.render_batch_ray(c, decoders, device, stage='color', gt_depth=gt_depth_batch)
+
+                        pointsf,z_vals = self.renderer.sample_batch_ray( rays_d_batch, rays_o_batch, device, stage='color', gt_depth=gt_depth_batch)
+                        depth, uncertainty, color = self.renderer.render_batch_ray(c, decoders, device, 'color',
+                                                                                   pointsf,z_vals,rays_o_batch,rays_d_batch,
+                                                                                   gt_depth=gt_depth_batch)
 
                         color_list.append(color)
                     color = torch.cat(color_list, dim=0)

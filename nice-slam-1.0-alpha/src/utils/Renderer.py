@@ -33,7 +33,6 @@ class Renderer(object):
         Returns:
             ret (tensor): occupancy (and color) value of input points.
         """
-
         p_split = torch.split(p, self.points_batch_size)
         bound = self.bound
         rets = []
@@ -55,7 +54,7 @@ class Renderer(object):
 
             ret[~mask, 3] = 100
             rets.append(ret)
-
+            
         ret = torch.cat(rets, dim=0)
         return ret
 
@@ -78,8 +77,6 @@ class Renderer(object):
 
         N_samples = self.N_samples
         N_surface = self.N_surface
-        self.rays_d = rays_d
-        self.rays_o = rays_o
 
         if stage == 'coarse':
             gt_depth = None
@@ -168,9 +165,6 @@ class Renderer(object):
         pts = rays_o[..., None, :] + rays_d[..., None, :] * \
             z_vals[..., :, None]  # [N_rays, N_samples+N_surface, 3]
         pointsf = pts.reshape(-1, 3)
-        self.pointsf = pointsf
-        self.z_vals = z_vals
-        self.N_rays = rays_o.shape[0]
 
         # Since we don't use IMAP, we will ignore the case that N_importance > 0
         # if N_importance > 0:
@@ -183,9 +177,9 @@ class Renderer(object):
         #     pts = rays_o[..., None, :] + \
         #         rays_d[..., None, :] * z_vals[..., :, None]
         #     pts = pts.reshape(-1, 3)
-        return pointsf
+        return pointsf,z_vals
         
-    def render_batch_ray(self, c, decoders, device, stage, gt_depth = None):
+    def render_batch_ray(self, c, decoders, device, stage, pointsf,z_vals,rays_o,rays_d,gt_depth = None):
         """
         Render color, depth and uncertainty of a batch of rays.
 
@@ -206,13 +200,13 @@ class Renderer(object):
 
         N_samples = self.N_samples
         N_surface = 0  if gt_depth is None else self.N_surface
-        N_rays = self.N_rays
+        N_rays = rays_o.shape[0]
         
-        raw = self.eval_points(self.pointsf, decoders, c, stage, device)
+        raw = self.eval_points(pointsf, decoders, c, stage, device)
         raw = raw.reshape(N_rays, N_samples+N_surface, -1)
 
         depth, uncertainty, color, weights = raw2outputs_nerf_color(
-            raw, self.z_vals, self.rays_d, occupancy=self.occupancy, device=device)
+            raw, z_vals, rays_d, occupancy=self.occupancy, device=device)
 
         return depth, uncertainty, color
 

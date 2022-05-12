@@ -1,7 +1,7 @@
 import torch
 
 class VoxelHashingMap(object):
-    def __init__(self,grid_resolution,init_size,feature_len,bound_min,voxel_size):
+    def __init__(self,grid_resolution,init_size,feature_len,bound_min,voxel_size,name):
         """
         :param grid_resolution (3, ) resolution in three directions (x,y,z)
         :param init_size (scalar) initial size of the voxels
@@ -10,7 +10,7 @@ class VoxelHashingMap(object):
         :param voxel_size: double
         """
         self.vox_idx = -torch.ones(grid_resolution[0] * grid_resolution[1] * grid_resolution[2]).long()
-        self.voxels = torch.zeros(init_size,feature_len).normal_(mean=1, std=0.01)
+        self.voxels = torch.zeros(init_size,feature_len).normal_(mean=0, std=0.01)
         self.vox_pos = torch.zeros(init_size,dtype=torch.long)
         self.n_xyz = grid_resolution
         self.n_occupied = 0
@@ -19,7 +19,27 @@ class VoxelHashingMap(object):
         self.bound_min = bound_min
         self.bound_max = self.bound_min + self.voxel_size * torch.tensor(self.n_xyz)
         self.device = 'cpu'
-        
+        self.name = name
+        self.tracker = False
+    
+    def print_info(self):
+        print("Content of map",self.name,":")
+        print(" vox_idx.shape:",self.vox_idx.shape)
+        print(" vox_idx:",self.vox_idx)
+        print(" vox_idx max:",self.vox_idx.max())
+        print(" vox_idx min:",self.vox_idx.min())
+        print(" voxels.shape:",self.voxels.shape)
+        print(" voxels:",self.voxels)
+        print(" vox_pos.shape:",self.vox_pos.shape)
+        print(" vox_pos:",self.vox_pos)
+        print(" n_xyz:",self.n_xyz)
+        print(" n_occupied:",self.n_occupied)
+        print(" latent_dim",self.latent_dim)
+        print(" voxel_size",self.voxel_size)
+        print(" bound_min",self.bound_min)
+        print(" bound_max",self.bound_max)
+        print(" device:",self.device)                
+    
     def id3d_to_id1d(self, xyz: torch.Tensor):
         """
         :param xyz (N, 3) long id
@@ -106,25 +126,27 @@ class VoxelHashingMap(object):
 
         grid_idx = self.id3d_to_id1d(idx[valid_mask])
 
-        res_features = torch.zeros([points.shape[0]*8, self.latent_dim]).to(self.device)
+        
         hashmap_idx = self.vox_idx[grid_idx]    
         existence_mask = (hashmap_idx != -1).clone()
         valid_mask[valid_mask.clone()] = existence_mask
-        print(points.shape)
         
+        
+                       
+        
+        if self.tracker:
+            print(hashmap_idx.shape)
+            print(existence_mask.shape)
+            print(hashmap_idx[existence_mask].shape)
+            print(hashmap_idx[existence_mask].max())
+            print(hashmap_idx[existence_mask].min())
+            self.print_info()
+            b = self.voxels[hashmap_idx[existence_mask]]
+        
+        res_features = torch.zeros([points.shape[0]*8, self.latent_dim]).to(self.device)
         res_features[valid_mask]= self.voxels[hashmap_idx[existence_mask]]
-#         try:
-           
-#         except Exception as ep:
-#             print(ep)
-#             print("Error in line 114:")
-#             print("hashmap_idx shape:",hashmap_idx.shape)
-#             print("res_features shape:",res_features.shape)
-#             print("self.voxels.shape:", self.voxels.shape)
-#             print("grid_idx shape: ",grid_idx.shape)
-#             print("existence_mask shape: ",existence_mask.shape)
-#             print("number of existence: ",sum(existence_mask.long()))
-#             print("hashmap_idx[existence_mask] shape:",hashmap_idx[existence_mask].shape)
+        res_features = res_features.to(self.device)
+
         return res_features, coordinate3d
     
     def if_invalid_allocate(self,neighbors:torch.Tensor):
@@ -226,7 +248,7 @@ class VoxelHashingMap(object):
     
     def clone(self):
         
-        new_hash_map = VoxelHashingMap([3,3,3],0,3,torch.tensor([1,2,3]),1)
+        new_hash_map = VoxelHashingMap([3,3,3],0,3,torch.tensor([1,2,3]),1, "temp")
         new_hash_map.vox_idx = self.vox_idx.clone()
         new_hash_map.voxels = self.voxels.clone()
         new_hash_map.vox_pos = self.vox_pos.clone()
@@ -237,5 +259,11 @@ class VoxelHashingMap(object):
         new_hash_map.n_occupied = self.n_occupied
         new_hash_map.latent_dim = self.latent_dim
         new_hash_map.voxel_size = self.voxel_size
-
+        new_hash_map.name = self.name
+        print("to clone:")
+        self.print_info()
+        
+        print("cloned:")
+        new_hash_map.print_info()
+        
         return new_hash_map

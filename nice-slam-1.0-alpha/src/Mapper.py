@@ -424,7 +424,7 @@ class Mapper(object):
                 batch_gt_depth = batch_gt_depth[inside_mask]
                 batch_gt_color = batch_gt_color[inside_mask]
 
-            related_3dpoints = self.renderer.sample_batch_ray( batch_rays_d, 
+            related_3dpoints,z_vals = self.renderer.sample_batch_ray( batch_rays_d, 
                                                  batch_rays_o, device, self.stage, 
                                                  gt_depth=None if self.coarse_mapper else batch_gt_depth)
             
@@ -434,7 +434,13 @@ class Mapper(object):
                 
             elif self.stage == 'middle':
                 neighbors = self.c['grid_middle'].find_neighbors(related_3dpoints)
+                print(neighbors.max())
+                print()
+                self.c['grid_middle'].print_info()
+                print()
                 self.c['grid_middle'].if_invalid_allocate(neighbors)
+                self.c['grid_middle'].print_info()
+                print()
                 
             elif self.stage == 'fine':
                 neighbors = self.c['grid_fine'].find_neighbors(related_3dpoints)
@@ -442,10 +448,11 @@ class Mapper(object):
                 
             elif self.stage == 'color':
                 neighbors = self.c['grid_color'].find_neighbors(related_3dpoints)
-                self.c['grid_color'].if_invalid_allocate(neighbors)
+                self.c['grid_color'].if_invalid_allocate(neighbors)        
             
             optimizer.zero_grad()
-            ret = self.renderer.render_batch_ray(c, self.decoders, device, self.stage, 
+            ret = self.renderer.render_batch_ray(c, self.decoders, device, self.stage,
+                                                 related_3dpoints, z_vals, batch_rays_o,batch_rays_d,
                                                  gt_depth=None if self.coarse_mapper else batch_gt_depth)
             depth, uncertainty, color = ret
 

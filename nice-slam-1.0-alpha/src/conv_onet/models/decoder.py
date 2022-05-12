@@ -98,7 +98,7 @@ class MLP(nn.Module):
         c_dim (int): feature dimension.
         hidden_size (int): hidden size of Decoder network.
         n_blocks (int): number of layers.
-        leaky (bool): whether to use leaky ReLUs.
+        leaky (bool): whether to use leaky ReLUs.0
         sample_mode (str): sampling feature strategy, bilinear|nearest.
         color (bool): whether or not to output color.
         skips (list): list of layers to have skip connections.
@@ -180,7 +180,8 @@ class MLP(nn.Module):
             #     p, c_grid['grid_' + self.name]).transpose(1, 2).squeeze(0)
             c = c_grid['grid_' + self.name].map_interpolation(p.squeeze(0))
             
-            if self.concat_feature:  
+            if self.concat_feature:
+                  
                 # only happen to fine decoder, get feature from middle level and concat to the current feature
                 with torch.no_grad():
                     # c_middle = self.sample_grid_feature(
