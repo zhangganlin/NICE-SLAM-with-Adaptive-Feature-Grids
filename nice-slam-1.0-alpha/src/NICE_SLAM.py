@@ -35,7 +35,7 @@ class NICE_SLAM():
         self.dataset = cfg['dataset']
         self.coarse_bound_enlarge = cfg['model']['coarse_bound_enlarge']
         #TODO: Change to config
-        self.grid_init_size = 1000
+        self.grid_init_size = 2400
 
         if args.output is None:
             self.output = cfg['data']['output']
@@ -222,6 +222,9 @@ class NICE_SLAM():
             val_shape = [1, c_dim, *coarse_val_shape]
             # change the coarse_val
             # coarse_val = torch.zeros(val_shape).normal_(mean=0, std=0.01)
+            
+            self.grid_init_size = val_shape[-3]*val_shape[-2]*val_shape[-1]
+            
             coarse_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim,self.bound[:,0],coarse_grid_len, "coarseMap")
             c[coarse_key] = coarse_val
 
@@ -231,6 +234,9 @@ class NICE_SLAM():
         self.middle_val_shape = middle_val_shape
         val_shape = [1, c_dim, *middle_val_shape]
         # middle_val = torch.zeros(val_shape).normal_(mean=0, std=0.01)
+        
+        self.grid_init_size = val_shape[-3]*val_shape[-2]*val_shape[-1]
+        
         middle_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim, self.bound[:,0], middle_grid_len,"middleMap")
         c[middle_key] = middle_val
 
@@ -240,6 +246,9 @@ class NICE_SLAM():
         self.fine_val_shape = fine_val_shape
         val_shape = [1, c_dim, *fine_val_shape]
         # fine_val = torch.zeros(val_shape).normal_(mean=0, std=0.0001)
+        
+        self.grid_init_size = val_shape[-3]*val_shape[-2]*val_shape[-1]
+        
         fine_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim, self.bound[:,0], fine_grid_len, "fineMap")
         c[fine_key] = fine_val
 
@@ -249,6 +258,9 @@ class NICE_SLAM():
         self.color_val_shape = color_val_shape
         val_shape = [1, c_dim, *color_val_shape]
         # color_val = torch.zeros(val_shape).normal_(mean=0, std=0.01)
+        
+        self.grid_init_size = val_shape[-3]*val_shape[-2]*val_shape[-1]
+        
         color_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim, self.bound[:,0], color_grid_len, "colorMap")
         c[color_key] = color_val
 
@@ -312,6 +324,9 @@ class NICE_SLAM():
             processes.append(p)
         for p in processes:
             p.join()
+
+# ref may be useful:
+# https://stackoverflow.com/questions/59525805/torch-multiprocessing-queue-yields-no-speedup
 
 
 # This part is required by torch.multiprocessing

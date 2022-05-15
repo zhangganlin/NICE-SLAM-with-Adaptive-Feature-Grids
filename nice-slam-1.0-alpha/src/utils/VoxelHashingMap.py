@@ -13,7 +13,7 @@ class VoxelHashingMap(object):
         self.voxels = torch.zeros(init_size,feature_len).normal_(mean=0, std=0.01)
         self.vox_pos = torch.zeros(init_size,dtype=torch.long)
         self.n_xyz = grid_resolution
-        self.n_occupied = 0
+        self.n_occupied = torch.tensor(0).long()
         self.latent_dim = feature_len
         self.voxel_size = voxel_size
         self.bound_min = bound_min
@@ -135,14 +135,14 @@ class VoxelHashingMap(object):
         
                        
         
-        if self.tracker:
-            print(hashmap_idx.shape)
-            print(existence_mask.shape)
-            print(hashmap_idx[existence_mask].shape)
-            print(hashmap_idx[existence_mask].max())
-            print(hashmap_idx[existence_mask].min())
-            self.print_info()
-            b = self.voxels[hashmap_idx[existence_mask]]
+        # if self.tracker:
+        #     print(hashmap_idx.shape)
+        #     print(existence_mask.shape)
+        #     print(hashmap_idx[existence_mask].shape)
+        #     print(hashmap_idx[existence_mask].max())
+        #     print(hashmap_idx[existence_mask].min())
+        #     self.print_info()
+        #     b = self.voxels[hashmap_idx[existence_mask]]
         
         res_features = torch.zeros([points.shape[0]*8, self.latent_dim]).to(self.device)
         res_features[valid_mask]= self.voxels[hashmap_idx[existence_mask]]
@@ -165,21 +165,26 @@ class VoxelHashingMap(object):
         # allocate more spaces if access new voxels
         target_n_occupied = self.n_occupied + count
         # allocate new slots
-        if self.voxels.size(0) < target_n_occupied:
-            new_size = self.voxels.size(0)
+        if self.voxels.shape[0] < target_n_occupied:
+            new_size = self.voxels.shape[0]
             while new_size < target_n_occupied:
                 new_size *= 2
             new_voxels = torch.empty((new_size, self.latent_dim), dtype=torch.float32)
-            new_voxels[:self.voxels.size(0)] = self.voxels
+            new_voxels[:self.voxels.shape[0]] = self.voxels
             new_vox_pos = torch.ones((new_size, ), dtype=torch.long) * -1
-            new_vox_pos[:self.voxels.size(0)] = self.vox_pos
+            new_vox_pos[:self.voxels.shape[0]] = self.vox_pos
 
-            new_voxels[self.voxels.size(0):].zero_().normal_(mean=0, std=0.01)
+            new_voxels[self.voxels.shape[0]:].zero_().normal_(mean=0, std=0.01)
             self.voxels = new_voxels
             self.vox_pos = new_vox_pos
+            
+            self.voxels.share_memory_()
+            self.vox_pos.share_memory_()
         if self.device is not 'cpu':
             self.voxels = self.voxels.to(self.device)
-            
+        
+        
+                    
     def get_feature_at(self,coordinate:torch.Tensor):
         """
         :param coordinate (N, 3) long id
@@ -246,25 +251,24 @@ class VoxelHashingMap(object):
         self.vox_pos.share_memory_()
         self.bound_min.share_memory_()
         self.bound_max.share_memory_() 
+        self.n_occupied.share_memory_()
     
     def clone(self):
-        
         new_hash_map = VoxelHashingMap([3,3,3],0,3,torch.tensor([1,2,3]),1, "temp")
         new_hash_map.vox_idx = self.vox_idx.clone()
         new_hash_map.voxels = self.voxels.clone()
         new_hash_map.vox_pos = self.vox_pos.clone()
         new_hash_map.bound_min = self.bound_min.clone()
         new_hash_map.bound_max = self.bound_max.clone()
-        new_hash_map.n_occupied = self.n_occupied
+        new_hash_map.n_occupied = self.n_occupied.clone()
         new_hash_map.n_xyz = self.n_xyz
-        new_hash_map.n_occupied = self.n_occupied
         new_hash_map.latent_dim = self.latent_dim
         new_hash_map.voxel_size = self.voxel_size
         new_hash_map.name = self.name
-        print("to clone:")
-        self.print_info()
+        # print("to clone:")
+        # self.print_info()
         
-        print("cloned:")
-        new_hash_map.print_info()
+        # print("cloned:")
+        # new_hash_map.print_info()
         
         return new_hash_map

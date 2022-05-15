@@ -434,13 +434,7 @@ class Mapper(object):
                 
             elif self.stage == 'middle':
                 neighbors = self.c['grid_middle'].find_neighbors(related_3dpoints)
-                print(neighbors.max())
-                print()
-                self.c['grid_middle'].print_info()
-                print()
                 self.c['grid_middle'].if_invalid_allocate(neighbors)
-                self.c['grid_middle'].print_info()
-                print()
                 
             elif self.stage == 'fine':
                 neighbors = self.c['grid_fine'].find_neighbors(related_3dpoints)
