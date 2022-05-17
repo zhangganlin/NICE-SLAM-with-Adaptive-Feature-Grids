@@ -88,14 +88,20 @@ class VoxelHashingMap(object):
         neighbor = torch.Tensor([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1], [1, 1, 1]])
         neighbor = neighbor.to(self.device)
         voxel_xyz_id = self.point3d_to_id3d(points)
-        res = []
-        for i in range(voxel_xyz_id.shape[0]):
-            xyz_id = voxel_xyz_id[i]
-            near_voxel_xyz_id = xyz_id+neighbor 
-            # voxel features
-            res.append(near_voxel_xyz_id)
-        # 8N * 3
-        res = torch.cat(res)
+        # res = []
+
+        # for i in range(voxel_xyz_id.shape[0]):
+        #     xyz_id = voxel_xyz_id[i]
+        #     near_voxel_xyz_id = xyz_id+neighbor 
+        #     # voxel features
+        #     res.append(near_voxel_xyz_id)
+        # # 8N * 3
+        # res = torch.cat(res)
+
+        voxel_xyz_id = voxel_xyz_id.repeat(1, 8).reshape(voxel_xyz_id.shape[0] * 8, voxel_xyz_id.shape[1])
+        neighbor = neighbor.repeat(points.shape[0], 1)
+        res = voxel_xyz_id + neighbor
+
         mask_x = (res[:, 0] < self.n_xyz[0]) & (res[:, 0] >= 0)
         mask_y = (res[:, 1] < self.n_xyz[1]) & (res[:, 1] >= 0)
         mask_z = (res[:, 2] < self.n_xyz[2]) & (res[:, 2] >= 0)
@@ -112,13 +118,16 @@ class VoxelHashingMap(object):
         neighbor = torch.Tensor([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1], [1, 1, 1]])
         neighbor = neighbor.to(self.device)
         voxel_xyz_id = self.point3d_to_id3d(points)
-        idx = []
-        for i in range(voxel_xyz_id.shape[0]):
-            xyz_id = voxel_xyz_id[i]
-            near_voxel_xyz_id = xyz_id+neighbor 
-            idx.append(near_voxel_xyz_id)
-        # 8N * 3
-        idx = torch.cat(idx)
+        # idx = []
+        # for i in range(voxel_xyz_id.shape[0]):
+        #     xyz_id = voxel_xyz_id[i]
+        #     near_voxel_xyz_id = xyz_id+neighbor 
+        #     idx.append(near_voxel_xyz_id)
+        # # 8N * 3
+        # idx = torch.cat(idx)
+        voxel_xyz_id = voxel_xyz_id.repeat(1, 8).reshape(voxel_xyz_id.shape[0] * 8, voxel_xyz_id.shape[1])
+        neighbor = neighbor.repeat(points.shape[0], 1)
+        idx = voxel_xyz_id + neighbor
         mask_x = (idx[:, 0] < self.n_xyz[0]) & (idx[:, 0] >= 0)
         mask_y = (idx[:, 1] < self.n_xyz[1]) & (idx[:, 1] >= 0)
         mask_z = (idx[:, 2] < self.n_xyz[2]) & (idx[:, 2] >= 0)
@@ -131,10 +140,6 @@ class VoxelHashingMap(object):
         hashmap_idx = self.vox_idx[grid_idx]    
         existence_mask = (hashmap_idx != -1).clone()
         valid_mask[valid_mask.clone()] = existence_mask
-        
-        
-                       
-        
         # if self.tracker:
         #     print(hashmap_idx.shape)
         #     print(existence_mask.shape)
