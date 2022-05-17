@@ -207,7 +207,7 @@ class VoxelHashingMap(object):
         neighbors_coordinate = neighbors_coordinate.reshape([points.shape[0],8,-1])
 
         # N*8*1 = (N*8*3, N*1*3) 
-        distances = torch.cdist(neighbors_coordinate,points[:,None,:],p=2)
+        distances = torch.cdist(neighbors_coordinate.float(), points[:,None,:].float(), p=2)
         # N*8
         distances = distances.squeeze(-1)
         
