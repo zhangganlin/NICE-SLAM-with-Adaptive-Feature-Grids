@@ -386,14 +386,14 @@ class Renderer(object):
 
                     # ret = self.render_batch_ray(
                     #     c, decoders, rays_d_batch, rays_o_batch, device, stage, gt_depth=None)
-                    pointsf, z_vals = self.renderer.sample_batch_ray( rays_d_batch, rays_o_batch, device, stage, gt_depth=None)
+                    pointsf, z_vals = self.sample_batch_ray( rays_d_batch, rays_o_batch, device, stage, gt_depth=None)
                     ret= self.render_batch_ray(c, decoders, device, stage, pointsf, z_vals,rays_o_batch, rays_d_batch, gt_depth=None)
 
                 else:
                     gt_depth_batch = gt_depth[i:i+ray_batch_size]
                     # ret = self.render_batch_ray(
                     #     c, decoders, rays_d_batch, rays_o_batch, device, stage, gt_depth=gt_depth_batch)
-                    pointsf, z_vals = self.renderer.sample_batch_ray( rays_d_batch, rays_o_batch, device, stage, gt_depth=gt_depth_batch)
+                    pointsf, z_vals = self.sample_batch_ray( rays_d_batch, rays_o_batch, device, stage, gt_depth=gt_depth_batch)
                     ret= self.render_batch_ray(c, decoders, device, stage, pointsf, z_vals,rays_o_batch, rays_d_batch, gt_depth=gt_depth_batch)
 
                 depth, uncertainty, color = ret
