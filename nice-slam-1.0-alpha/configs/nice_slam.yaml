@@ -53,9 +53,9 @@ mapping:
   no_vis_on_first_frame: True
   no_mesh_on_first_frame: True
   no_log_on_first_frame: True
-  vis_freq: 50
+  vis_freq: 10
   vis_inside_freq: 25 #each iteration 
-  mesh_freq: 50
+  mesh_freq: 10
   ckpt_freq: 500
   keyframe_every: 50
   mapping_window_size: 5
@@ -103,7 +103,7 @@ cam:
   png_depth_scale: 6553.5 #for depth image in png format
   crop_edge: 0
 rendering:
-  N_samples: 32
+  N_samples: 16
   N_surface: 16
   N_importance: 0
   lindisp: False

@@ -42,13 +42,15 @@ class Renderer(object):
             mask_y = (pi[:, 1] < bound[1][1]) & (pi[:, 1] > bound[1][0])
             mask_z = (pi[:, 2] < bound[2][1]) & (pi[:, 2] > bound[2][0])
             mask = mask_x & mask_y & mask_z
-
+            
+            ret = torch.zeros([pi.shape[0],4]).to(device)
+            pi = pi[mask]
             pi = pi.unsqueeze(0)
+            
             if self.nice:
-                ret = decoders(pi, c_grid=c, stage=stage)
-            else:
-                ret = decoders(pi, c_grid=None)
-            ret = ret.squeeze(0)
+                ret_temp = decoders(pi, c_grid=c, stage=stage)
+                ret[mask] = ret_temp.squeeze(0)
+                
             if len(ret.shape) == 1 and ret.shape[0] == 4:
                 ret = ret.unsqueeze(0)
 

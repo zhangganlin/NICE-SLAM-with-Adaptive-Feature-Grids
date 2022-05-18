@@ -191,12 +191,20 @@ class Tracker(object):
                 print("Tracking Frame ",  idx.item())
                 print(Style.RESET_ALL)
 
+            
+            
+            
             if idx == 0 or self.gt_camera:
                 c2w = gt_c2w
                 if not self.no_vis_on_first_frame:
                     self.visualizer.vis(
                         idx, 0, gt_depth, gt_color, c2w, self.c, self.decoders)
-
+            
+            self.idx[0] = idx
+            continue
+            if True:
+                pass
+            
             else:
                 gt_camera_tensor = get_tensor_from_camera(gt_c2w)
                 if self.const_speed_assumption and idx-2 >= 0:

@@ -175,23 +175,30 @@ class MLP(nn.Module):
         return c
 
     def forward(self, p, c_grid=None):
+        N = p.shape[1]
         if self.c_dim != 0:
             # c = self.sample_grid_feature(
             #     p, c_grid['grid_' + self.name]).transpose(1, 2).squeeze(0)
-            c = c_grid['grid_' + self.name].map_interpolation(p.squeeze(0))
-            
             if self.concat_feature:
-                  
                 # only happen to fine decoder, get feature from middle level and concat to the current feature
                 with torch.no_grad():
                     # c_middle = self.sample_grid_feature(
                     #     p, c_grid['grid_middle']).transpose(1, 2).squeeze(0)
                     
-                    c_middle = c_grid['grid_middle'].map_interpolation(p.squeeze(0))
+                    middle_mask = c_grid['grid_middle'].if_neighbors_valid(p.squeeze(0))
+                    fine_mask = c_grid['grid_' + self.name].if_neighbors_valid(p.squeeze(0))
+                    mask = middle_mask & fine_mask
                     
+                    c_middle = c_grid['grid_middle'].map_interpolation(p.squeeze(0)[mask])
+                
+                c = c_grid['grid_' + self.name].map_interpolation(p.squeeze(0)[mask])   
                 c = torch.cat([c, c_middle], dim=1)
+                
+            else:
+                mask = c_grid['grid_' + self.name].if_neighbors_valid(p.squeeze(0))
+                c = c_grid['grid_' + self.name].map_interpolation(p.squeeze(0)[mask])
 
-        p = p.float()
+        p = p.float()[0,mask]
 
         embedded_pts = self.embedder(p)
         h = embedded_pts
@@ -203,9 +210,16 @@ class MLP(nn.Module):
             if i in self.skips:
                 h = torch.cat([embedded_pts, h], -1)
         out = self.output_linear(h)
+        
+        ret = torch.zeros((N, out.shape[-1])).to(out.device)
+        
+        ret[mask] = out
+        
         if not self.color:
-            out = out.squeeze(-1)
-        return out
+            ret[~mask] = -100
+            ret = ret.squeeze(-1)
+        
+        return ret
 
 
 class MLP_no_xyz(nn.Module):

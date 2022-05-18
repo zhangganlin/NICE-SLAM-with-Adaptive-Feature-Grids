@@ -217,7 +217,7 @@ class NICE_SLAM():
             coarse_key = 'grid_coarse'
             coarse_val_shape = list(
                 map(int, (xyz_len*self.coarse_bound_enlarge/coarse_grid_len).tolist()))
-            coarse_val_shape[0], coarse_val_shape[2] = coarse_val_shape[2], coarse_val_shape[0]
+            # coarse_val_shape[0], coarse_val_shape[2] = coarse_val_shape[2], coarse_val_shape[0]
             self.coarse_val_shape = coarse_val_shape
             val_shape = [1, c_dim, *coarse_val_shape]
             # change the coarse_val
@@ -230,7 +230,7 @@ class NICE_SLAM():
 
         middle_key = 'grid_middle'
         middle_val_shape = list(map(int, (xyz_len/middle_grid_len).tolist()))
-        middle_val_shape[0], middle_val_shape[2] = middle_val_shape[2], middle_val_shape[0]
+        # middle_val_shape[0], middle_val_shape[2] = middle_val_shape[2], middle_val_shape[0]
         self.middle_val_shape = middle_val_shape
         val_shape = [1, c_dim, *middle_val_shape]
         # middle_val = torch.zeros(val_shape).normal_(mean=0, std=0.01)
@@ -242,7 +242,7 @@ class NICE_SLAM():
 
         fine_key = 'grid_fine'
         fine_val_shape = list(map(int, (xyz_len/fine_grid_len).tolist()))
-        fine_val_shape[0], fine_val_shape[2] = fine_val_shape[2], fine_val_shape[0]
+        # fine_val_shape[0], fine_val_shape[2] = fine_val_shape[2], fine_val_shape[0]
         self.fine_val_shape = fine_val_shape
         val_shape = [1, c_dim, *fine_val_shape]
         # fine_val = torch.zeros(val_shape).normal_(mean=0, std=0.0001)
@@ -254,7 +254,7 @@ class NICE_SLAM():
 
         color_key = 'grid_color'
         color_val_shape = list(map(int, (xyz_len/color_grid_len).tolist()))
-        color_val_shape[0], color_val_shape[2] = color_val_shape[2], color_val_shape[0]
+        # color_val_shape[0], color_val_shape[2] = color_val_shape[2], color_val_shape[0]
         self.color_val_shape = color_val_shape
         val_shape = [1, c_dim, *color_val_shape]
         # color_val = torch.zeros(val_shape).normal_(mean=0, std=0.01)

@@ -201,6 +201,9 @@ class VoxelHashingMap(object):
         return ret
     
     def map_interpolation(self, points:torch.Tensor):
+        
+        if points.shape[0] == 0:
+            return torch.Tensor([]).reshape([0,self.latent_dim]).float().to(self.device)
         # N*8*dim
         neighbors_feature, neighbors_coordinate, valid_mask = self.find_neighbors_feature(points)
         neighbors_feature = neighbors_feature.reshape([points.shape[0],8,-1]) 
@@ -289,9 +292,9 @@ class VoxelHashingMap(object):
         mask_x = (idx[:, 0] < self.n_xyz[0]) & (idx[:, 0] >= 0)
         mask_y = (idx[:, 1] < self.n_xyz[1]) & (idx[:, 1] >= 0)
         mask_z = (idx[:, 2] < self.n_xyz[2]) & (idx[:, 2] >= 0)
-        bound_mask = (mask_x & mask_y & mask_z)
+        bound_mask = (mask_x & mask_y & mask_z).to(self.device)
         
-        neighbors_valid_mask = torch.zeros(points.shape[0]*8,dtype=torch.bool)
+        neighbors_valid_mask = torch.zeros(points.shape[0]*8,dtype=torch.bool).to(self.device)
                 
         grid_idx = self.id3d_to_id1d(idx[bound_mask])
         hash_idx = self.vox_idx[grid_idx]
