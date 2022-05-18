@@ -201,6 +201,8 @@ class Tracker(object):
                         idx, 0, gt_depth, gt_color, c2w, self.c, self.decoders)
             
             self.idx[0] = idx
+            camera_tensor = get_tensor_from_camera(gt_c2w)
+            self.visualizer.vis(idx, 0, gt_depth, gt_color, gt_c2w, self.c, self.decoders)
             continue
             if True:
                 pass

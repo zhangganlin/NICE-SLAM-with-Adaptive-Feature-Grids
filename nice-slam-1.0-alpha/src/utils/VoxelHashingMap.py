@@ -151,7 +151,7 @@ class VoxelHashingMap(object):
         res_features = torch.zeros([points.shape[0]*8, self.latent_dim]).to(self.device)
         res_features[valid_mask]= self.voxels[hashmap_idx[existence_mask]]
         res_features = res_features.to(self.device)
-        return res_features, coordinate3d,  valid_mask.reshape((points.shape[0], 8))
+        return res_features, coordinate3d, valid_mask.reshape((points.shape[0], 8))
     
     def if_invalid_allocate(self,neighbors:torch.Tensor):
         neighbors_vox_idx = self.vox_idx[neighbors]

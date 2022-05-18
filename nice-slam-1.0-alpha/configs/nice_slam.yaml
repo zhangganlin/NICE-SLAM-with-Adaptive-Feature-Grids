@@ -50,9 +50,9 @@ mapping:
   BA_cam_lr: 0.001
   fix_fine: True
   fix_color: False
-  no_vis_on_first_frame: True
-  no_mesh_on_first_frame: True
-  no_log_on_first_frame: True
+  no_vis_on_first_frame: False
+  no_mesh_on_first_frame: False
+  no_log_on_first_frame: False
   vis_freq: 10
   vis_inside_freq: 25 #each iteration 
   mesh_freq: 10
@@ -60,7 +60,7 @@ mapping:
   keyframe_every: 50
   mapping_window_size: 5
   w_color_loss: 0.2
-  frustum_feature_selection: True
+  frustum_feature_selection: False
   keyframe_selection_method: 'overlap'
   save_selected_keyframes_info: False
   lr_first_factor: 5
@@ -103,7 +103,7 @@ cam:
   png_depth_scale: 6553.5 #for depth image in png format
   crop_edge: 0
 rendering:
-  N_samples: 16
+  N_samples: 32
   N_surface: 16
   N_importance: 0
   lindisp: False

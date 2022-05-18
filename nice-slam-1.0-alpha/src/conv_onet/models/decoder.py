@@ -216,7 +216,7 @@ class MLP(nn.Module):
         ret[mask] = out
         
         if not self.color:
-            ret[~mask] = -100
+            ret[~mask] = -10000
             ret = ret.squeeze(-1)
         
         return ret

@@ -3,7 +3,7 @@ sync_method: strict
 coarse: True
 verbose: False
 meshing:
-  resolution: 256
+  resolution: 512
 tracking:
   vis_freq: 10
   vis_inside_freq: 25
