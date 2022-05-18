@@ -277,3 +277,33 @@ class VoxelHashingMap(object):
         # new_hash_map.print_info()
         
         return new_hash_map
+    
+    
+    def if_neighbors_valid(self, points:torch.Tensor):
+        """
+        :param points: (N, 3) 3d coordinates of target points
+        :return: mask (N,) indicates whether each point has at least one valid neighbor
+        """
+        neighbor = torch.Tensor([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1], [1, 1, 1]])
+        neighbor = neighbor.to(self.device)
+        voxel_xyz_id = self.point3d_to_id3d(points)
+        
+        voxel_xyz_id = voxel_xyz_id.repeat(1, 8).reshape(voxel_xyz_id.shape[0] * 8, voxel_xyz_id.shape[1])
+        neighbor = neighbor.repeat(points.shape[0], 1)
+        idx = voxel_xyz_id + neighbor
+        
+        mask_x = (idx[:, 0] < self.n_xyz[0]) & (idx[:, 0] >= 0)
+        mask_y = (idx[:, 1] < self.n_xyz[1]) & (idx[:, 1] >= 0)
+        mask_z = (idx[:, 2] < self.n_xyz[2]) & (idx[:, 2] >= 0)
+        bound_mask = (mask_x & mask_y & mask_z)
+        
+        neighbors_valid_mask = torch.zeros(points.shape[0]*8,dtype=torch.bool)
+                
+        grid_idx = self.id3d_to_id1d(idx[bound_mask])
+        neighbors_valid_mask[bound_mask] = (grid_idx!=-1)
+        
+        neighbors_valid_mask = neighbors_valid_mask.reshape(voxel_xyz_id.shape[0],8)
+        
+        ret_mask = neighbors_valid_mask.sum(dim=1)!=0
+        
+        return ret_mask
