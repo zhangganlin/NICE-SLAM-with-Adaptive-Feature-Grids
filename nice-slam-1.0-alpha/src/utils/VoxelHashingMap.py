@@ -148,12 +148,10 @@ class VoxelHashingMap(object):
         #     print(hashmap_idx[existence_mask].min())
         #     self.print_info()
         #     b = self.voxels[hashmap_idx[existence_mask]]
-        
         res_features = torch.zeros([points.shape[0]*8, self.latent_dim]).to(self.device)
         res_features[valid_mask]= self.voxels[hashmap_idx[existence_mask]]
         res_features = res_features.to(self.device)
-
-        return res_features, coordinate3d
+        return res_features, coordinate3d,  valid_mask.reshape((points.shape[0], 8))
     
     def if_invalid_allocate(self,neighbors:torch.Tensor):
         neighbors_vox_idx = self.vox_idx[neighbors]
@@ -188,8 +186,6 @@ class VoxelHashingMap(object):
         if self.device is not 'cpu':
             self.voxels = self.voxels.to(self.device)
         
-        
-                    
     def get_feature_at(self,coordinate:torch.Tensor):
         """
         :param coordinate (N, 3) long id
@@ -205,21 +201,20 @@ class VoxelHashingMap(object):
         return ret
     
     def map_interpolation(self, points:torch.Tensor):
-            
         # N*8*dim
-        neighbors_feature, neighbors_coordinate = self.find_neighbors_feature(points)
+        neighbors_feature, neighbors_coordinate, valid_mask = self.find_neighbors_feature(points)
         neighbors_feature = neighbors_feature.reshape([points.shape[0],8,-1]) 
         neighbors_coordinate = neighbors_coordinate.reshape([points.shape[0],8,-1])
-
         # N*8*1 = (N*8*3, N*1*3) 
         distances = torch.cdist(neighbors_coordinate.float(), points[:,None,:].float(), p=2)
         # N*8
         distances = distances.squeeze(-1)
-        
         weight = 1.0/distances
         weight = weight / torch.sum(weight, axis = 1)[:, None]
         weight = torch.nan_to_num(weight,nan=1.0).float()
-        
+        weight *= valid_mask
+        assert((weight.sum(axis=1)==0).sum() == 0)
+        weight = weight / torch.sum(weight, axis = 1)[:, None]
         return torch.einsum("ijk,ij->ik",neighbors_feature,weight)
     
     def get_feature_by_id3d_mask(self,mask):
@@ -278,7 +273,6 @@ class VoxelHashingMap(object):
         
         return new_hash_map
     
-    
     def if_neighbors_valid(self, points:torch.Tensor):
         """
         :param points: (N, 3) 3d coordinates of target points
@@ -300,10 +294,8 @@ class VoxelHashingMap(object):
         neighbors_valid_mask = torch.zeros(points.shape[0]*8,dtype=torch.bool)
                 
         grid_idx = self.id3d_to_id1d(idx[bound_mask])
-        neighbors_valid_mask[bound_mask] = (grid_idx!=-1)
-        
-        neighbors_valid_mask = neighbors_valid_mask.reshape(voxel_xyz_id.shape[0],8)
-        
+        hash_idx = self.vox_idx[grid_idx]
+        neighbors_valid_mask[bound_mask] = (hash_idx!=-1)
+        neighbors_valid_mask = neighbors_valid_mask.reshape(points.shape[0],8)
         ret_mask = neighbors_valid_mask.sum(dim=1)!=0
-        
         return ret_mask
