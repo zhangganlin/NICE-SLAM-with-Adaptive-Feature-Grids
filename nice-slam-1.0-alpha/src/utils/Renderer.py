@@ -163,10 +163,17 @@ class Renderer(object):
         if N_surface > 0:
             z_vals, _ = torch.sort(
                 torch.cat([z_vals, z_vals_surface.double()], -1), -1)
+            z_vals_surface, _ = torch.sort(
+                torch.cat([z_vals_surface.double()], -1), -1)
+            
 
         pts = rays_o[..., None, :] + rays_d[..., None, :] * \
             z_vals[..., :, None]  # [N_rays, N_samples+N_surface, 3]
         pointsf = pts.reshape(-1, 3)
+
+        pts_surface = rays_o[..., None, :] + rays_d[..., None, :] * \
+            z_vals_surface[..., :, None]  # [N_rays, N_surface, 3]
+        pointsf_surface = pts_surface.reshape(-1,3)
 
         # Since we don't use IMAP, we will ignore the case that N_importance > 0
         # if N_importance > 0:
@@ -179,7 +186,7 @@ class Renderer(object):
         #     pts = rays_o[..., None, :] + \
         #         rays_d[..., None, :] * z_vals[..., :, None]
         #     pts = pts.reshape(-1, 3)
-        return pointsf,z_vals
+        return pointsf,z_vals,pointsf_surface
         
     def render_batch_ray(self, c, decoders, device, stage, pointsf,z_vals,rays_o,rays_d,gt_depth = None):
         """
@@ -388,14 +395,14 @@ class Renderer(object):
 
                     # ret = self.render_batch_ray(
                     #     c, decoders, rays_d_batch, rays_o_batch, device, stage, gt_depth=None)
-                    pointsf, z_vals = self.sample_batch_ray( rays_d_batch, rays_o_batch, device, stage, gt_depth=None)
+                    pointsf, z_vals,_ = self.sample_batch_ray( rays_d_batch, rays_o_batch, device, stage, gt_depth=None)
                     ret= self.render_batch_ray(c, decoders, device, stage, pointsf, z_vals,rays_o_batch, rays_d_batch, gt_depth=None)
 
                 else:
                     gt_depth_batch = gt_depth[i:i+ray_batch_size]
                     # ret = self.render_batch_ray(
                     #     c, decoders, rays_d_batch, rays_o_batch, device, stage, gt_depth=gt_depth_batch)
-                    pointsf, z_vals = self.sample_batch_ray( rays_d_batch, rays_o_batch, device, stage, gt_depth=gt_depth_batch)
+                    pointsf, z_vals,_ = self.sample_batch_ray( rays_d_batch, rays_o_batch, device, stage, gt_depth=gt_depth_batch)
                     ret= self.render_batch_ray(c, decoders, device, stage, pointsf, z_vals,rays_o_batch, rays_d_batch, gt_depth=gt_depth_batch)
 
                 depth, uncertainty, color = ret

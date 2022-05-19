@@ -315,7 +315,7 @@ class Mapper(object):
                     mask = self.get_mask_from_c2w(
                         mask_c2w, key, val.n_xyz, gt_depth_np)
                                                            
-                    mask = torch.from_numpy(mask).permute(2, 1, 0)
+                    mask = torch.from_numpy(mask)
                     
                     val = val.to(device)
                                         
@@ -424,24 +424,24 @@ class Mapper(object):
                 batch_gt_depth = batch_gt_depth[inside_mask]
                 batch_gt_color = batch_gt_color[inside_mask]
 
-            related_3dpoints,z_vals = self.renderer.sample_batch_ray( batch_rays_d, 
+            related_3dpoints,z_vals,related_surface = self.renderer.sample_batch_ray( batch_rays_d, 
                                                  batch_rays_o, device, self.stage, 
                                                  gt_depth=None if self.coarse_mapper else batch_gt_depth)
             
             if self.stage == 'coarse':
-                neighbors = self.c['grid_coarse'].find_neighbors(related_3dpoints)
+                neighbors = self.c['grid_coarse'].find_neighbors(related_surface)
                 self.c['grid_coarse'].if_invalid_allocate(neighbors)
                 
             elif self.stage == 'middle':
-                neighbors = self.c['grid_middle'].find_neighbors(related_3dpoints)
+                neighbors = self.c['grid_middle'].find_neighbors(related_surface)
                 self.c['grid_middle'].if_invalid_allocate(neighbors)
                 
             elif self.stage == 'fine':
-                neighbors = self.c['grid_fine'].find_neighbors(related_3dpoints)
+                neighbors = self.c['grid_fine'].find_neighbors(related_surface)
                 self.c['grid_fine'].if_invalid_allocate(neighbors)
                 
             elif self.stage == 'color':
-                neighbors = self.c['grid_color'].find_neighbors(related_3dpoints)
+                neighbors = self.c['grid_color'].find_neighbors(related_surface)
                 self.c['grid_color'].if_invalid_allocate(neighbors)        
             
             optimizer.zero_grad()
@@ -567,7 +567,7 @@ class Mapper(object):
                 else:
                     mask = self.get_mask_from_c2w(
                         mask_c2w, key, val.shape[2:], gt_depth_np)
-                    mask = torch.from_numpy(mask).permute(2, 1, 0).unsqueeze(
+                    mask = torch.from_numpy(mask).unsqueeze(
                         0).unsqueeze(0).repeat(1, val.shape[1], 1, 1, 1)
                     val = val.to(device)
                     # val_grad is the optimizable part, other parameters will be fixed

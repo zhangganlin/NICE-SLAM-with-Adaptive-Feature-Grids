@@ -1,4 +1,5 @@
 import torch
+import einops
 
 class VoxelHashingMap(object):
     def __init__(self,grid_resolution,init_size,feature_len,bound_min,voxel_size,name):
@@ -88,16 +89,7 @@ class VoxelHashingMap(object):
         neighbor = torch.Tensor([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1], [1, 1, 1]])
         neighbor = neighbor.to(self.device)
         voxel_xyz_id = self.point3d_to_id3d(points)
-        # res = []
-
-        # for i in range(voxel_xyz_id.shape[0]):
-        #     xyz_id = voxel_xyz_id[i]
-        #     near_voxel_xyz_id = xyz_id+neighbor 
-        #     # voxel features
-        #     res.append(near_voxel_xyz_id)
-        # # 8N * 3
-        # res = torch.cat(res)
-
+        
         voxel_xyz_id = voxel_xyz_id.repeat(1, 8).reshape(voxel_xyz_id.shape[0] * 8, voxel_xyz_id.shape[1])
         neighbor = neighbor.repeat(points.shape[0], 1)
         res = voxel_xyz_id + neighbor
@@ -115,16 +107,9 @@ class VoxelHashingMap(object):
         :param points: (N, 3) 3d coordinates of target pointss
         :return: 8 neighbors features for each points  (8N, dim)
         """
-        neighbor = torch.Tensor([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1], [1, 1, 1]])
+        neighbor = torch.Tensor([[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1] , [1, 0, 1], [0, 1, 1], [1, 1, 1]])
         neighbor = neighbor.to(self.device)
         voxel_xyz_id = self.point3d_to_id3d(points)
-        # idx = []
-        # for i in range(voxel_xyz_id.shape[0]):
-        #     xyz_id = voxel_xyz_id[i]
-        #     near_voxel_xyz_id = xyz_id+neighbor 
-        #     idx.append(near_voxel_xyz_id)
-        # # 8N * 3
-        # idx = torch.cat(idx)
         voxel_xyz_id = voxel_xyz_id.repeat(1, 8).reshape(voxel_xyz_id.shape[0] * 8, voxel_xyz_id.shape[1])
         neighbor = neighbor.repeat(points.shape[0], 1)
         idx = voxel_xyz_id + neighbor
@@ -136,18 +121,10 @@ class VoxelHashingMap(object):
 
         grid_idx = self.id3d_to_id1d(idx[valid_mask])
 
-        
         hashmap_idx = self.vox_idx[grid_idx]    
         existence_mask = (hashmap_idx != -1).clone()
         valid_mask[valid_mask.clone()] = existence_mask
-        # if self.tracker:
-        #     print(hashmap_idx.shape)
-        #     print(existence_mask.shape)
-        #     print(hashmap_idx[existence_mask].shape)
-        #     print(hashmap_idx[existence_mask].max())
-        #     print(hashmap_idx[existence_mask].min())
-        #     self.print_info()
-        #     b = self.voxels[hashmap_idx[existence_mask]]
+        
         res_features = torch.zeros([points.shape[0]*8, self.latent_dim]).to(self.device)
         res_features[valid_mask]= self.voxels[hashmap_idx[existence_mask]]
         res_features = res_features.to(self.device)
@@ -201,24 +178,100 @@ class VoxelHashingMap(object):
         return ret
     
     def map_interpolation(self, points:torch.Tensor):
-        
         if points.shape[0] == 0:
             return torch.Tensor([]).reshape([0,self.latent_dim]).float().to(self.device)
-        # N*8*dim
+        # (N*8, dim), (N*8, 3), (N*8, )
+        # [0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1] , [1, 0, 1], [0, 1, 1], [1, 1, 1]
         neighbors_feature, neighbors_coordinate, valid_mask = self.find_neighbors_feature(points)
-        neighbors_feature = neighbors_feature.reshape([points.shape[0],8,-1]) 
-        neighbors_coordinate = neighbors_coordinate.reshape([points.shape[0],8,-1])
-        # N*8*1 = (N*8*3, N*1*3) 
-        distances = torch.cdist(neighbors_coordinate.float(), points[:,None,:].float(), p=2)
-        # N*8
-        distances = distances.squeeze(-1)
-        weight = 1.0/distances
-        weight = weight / torch.sum(weight, axis = 1)[:, None]
-        weight = torch.nan_to_num(weight,nan=1.0).float()
-        weight *= valid_mask
-        assert((weight.sum(axis=1)==0).sum() == 0)
-        weight = weight / torch.sum(weight, axis = 1)[:, None]
-        return torch.einsum("ijk,ij->ik",neighbors_feature,weight)
+        # (N, 4, 2, dim)
+        neighbors_feature = neighbors_feature.reshape([points.shape[0], 4, 2, -1]) 
+        # (N, 4, 2, 3)
+        neighbors_coordinate = neighbors_coordinate.reshape([points.shape[0], 4, 2, -1])
+        # (N, 4, 2)
+        valid_mask = valid_mask.reshape([points.shape[0], 4, 2])
+        
+        points_1 = neighbors_coordinate[:, 3, 1, :]
+        points_0 = neighbors_coordinate[:, 0, 0, :]
+        points_d = (points - points_0)/(points_1 - points_0)
+        
+        points_weight = torch.stack([1-points_d, points_d], axis = 2).float()
+        
+        # (N, 2)
+        x_weight, y_weight, z_weight = points_weight[:, 0], points_weight[:, 1], points_weight[:, 2]
+        
+        # First interpolation
+        x_weight = einops.repeat(x_weight, 'm n -> m k n', k=4)
+        
+        x_weight = x_weight * valid_mask
+        x_weight = x_weight / x_weight.sum(axis = -1)[:,:, None]
+        x_weight = torch.nan_to_num(x_weight,nan=0.0).float()
+        
+        neighbors_feature_1 = torch.einsum("ijkl,ijk->ijl", neighbors_feature, x_weight)
+        
+        # Second interpolation
+        y_weight = einops.repeat(y_weight, 'm n -> m k n', k=2)
+        
+        valid_mask_y = (valid_mask.sum(axis = -1) != 0).reshape(points.shape[0], 2, 2)
+        y_weight = y_weight * valid_mask_y
+        y_weight = y_weight / y_weight.sum(axis = -1)[:,:, None]
+        y_weight = torch.nan_to_num(y_weight,nan=0.0).float()
+        
+        neighbors_feature_1 = neighbors_feature_1.reshape([points.shape[0], 2, 2, -1]) 
+        neighbors_feature_2 = torch.einsum("ijkl,ijk->ijl", neighbors_feature_1, y_weight)
+        
+        # Third interpolation
+        valid_mask_z = (valid_mask_y.sum(axis = -1) != 0)
+        
+        z_weight = z_weight * valid_mask_z
+        z_weight = z_weight / z_weight.sum(axis = -1)[:, None]
+        z_weight = torch.nan_to_num(z_weight,nan=0.0).float()
+        
+        neighbors_feature_3 = torch.einsum("ikl,ik->il", neighbors_feature_2, z_weight)
+        return neighbors_feature_3
+    
+    # def map_interpolation(self, points:torch.Tensor):
+    #     if points.shape[0] == 0:
+    #         return torch.Tensor([]).reshape([0,self.latent_dim]).float().to(self.device)
+    #     # (N*8, dim), (N*8, 3), (N*8, )
+    #     # [0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1] , [1, 0, 1], [0, 1, 1], [1, 1, 1]
+    #     neighbors_feature, neighbors_coordinate, valid_mask = self.find_neighbors_feature(points)
+    #     # (N, 4, 2, dim)
+    #     neighbors_feature = neighbors_feature.reshape([points.shape[0], 4, 2, -1]) 
+    #     # (N, 4, 2, 3)
+    #     neighbors_coordinate = neighbors_coordinate.reshape([points.shape[0], 4, 2, -1])
+    #     points_1 = neighbors_coordinate[:, 3, 1, :]
+    #     points_0 = neighbors_coordinate[:, 0, 0, :]
+    #     points_d = (points - points_0)/(points_1 - points_0)
+    #     points_weight = torch.stack([1-points_d, points_d], axis = 2).float()
+    #     x_weight, y_weight, z_weight = points_weight[:, 0], points_weight[:, 1], points_weight[:, 2]
+    #     # First interpolation
+    #     neighbors_feature_1 = torch.einsum("ijkl,ik->ijl", neighbors_feature, x_weight)
+    #     # Second interpolation
+    #     neighbors_feature_1 = neighbors_feature_1.reshape([points.shape[0], 2, 2, -1]) 
+    #     neighbors_feature_2 = torch.einsum("ijkl,ik->ijl", neighbors_feature_1, y_weight)
+    #     # Third interpolation
+    #     neighbors_feature_3 = torch.einsum("ikl,ik->il", neighbors_feature_2, z_weight)
+    #     return neighbors_feature_3
+    
+    # def map_interpolation(self, points:torch.Tensor):
+        
+    #     if points.shape[0] == 0:
+    #         return torch.Tensor([]).reshape([0,self.latent_dim]).float().to(self.device)
+    #     # N*8*dim
+    #     neighbors_feature, neighbors_coordinate, valid_mask = self.find_neighbors_feature(points)
+    #     neighbors_feature = neighbors_feature.reshape([points.shape[0],8,-1]) 
+    #     neighbors_coordinate = neighbors_coordinate.reshape([points.shape[0],8,-1])
+    #     # N*8*1 = (N*8*3, N*1*3) 
+    #     distances = torch.cdist(neighbors_coordinate.float(), points[:,None,:].float(), p=2)
+    #     # N*8
+    #     distances = distances.squeeze(-1)
+    #     weight = 1.0/distances
+    #     weight = weight / torch.sum(weight, axis = 1)[:, None]
+    #     weight = torch.nan_to_num(weight,nan=1.0).float()
+    #     weight *= valid_mask
+    #     assert((weight.sum(axis=1)==0).sum() == 0)
+    #     weight = weight / torch.sum(weight, axis = 1)[:, None]
+    #     return torch.einsum("ijk,ij->ik",neighbors_feature,weight)
     
     def get_feature_by_id3d_mask(self,mask):
         
@@ -268,12 +321,6 @@ class VoxelHashingMap(object):
         new_hash_map.latent_dim = self.latent_dim
         new_hash_map.voxel_size = self.voxel_size
         new_hash_map.name = self.name
-        # print("to clone:")
-        # self.print_info()
-        
-        # print("cloned:")
-        # new_hash_map.print_info()
-        
         return new_hash_map
     
     def if_neighbors_valid(self, points:torch.Tensor):

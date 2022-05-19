@@ -103,7 +103,7 @@ cam:
   png_depth_scale: 6553.5 #for depth image in png format
   crop_edge: 0
 rendering:
-  N_samples: 32
+  N_samples: 16
   N_surface: 16
   N_importance: 0
   lindisp: False

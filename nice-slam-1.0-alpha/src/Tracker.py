@@ -107,7 +107,7 @@ class Tracker(object):
         # ret = self.renderer.render_batch_ray(
         #     self.c, self.decoders, batch_rays_d, batch_rays_o,  self.device, stage='color',  gt_depth=batch_gt_depth)
 
-        pointsf,z_vals = self.renderer.sample_batch_ray( batch_rays_d, batch_rays_o, self.device, 'color', gt_depth=batch_gt_depth)
+        pointsf,z_vals,_ = self.renderer.sample_batch_ray( batch_rays_d, batch_rays_o, self.device, 'color', gt_depth=batch_gt_depth)
         ret = self.renderer.render_batch_ray(self.c, self.decoders, self.device, 'color', 
                                              pointsf,z_vals,batch_rays_o,batch_rays_d,
                                              gt_depth=batch_gt_depth)
