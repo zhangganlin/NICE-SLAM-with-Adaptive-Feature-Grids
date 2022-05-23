@@ -9,6 +9,7 @@ from torch.autograd import Variable
 
 from src.common import (get_camera_from_tensor, get_samples,
                         get_tensor_from_camera, random_select)
+from torch.utils.tensorboard import SummaryWriter
 from src.utils.datasets import get_dataset
 from src.utils.Visualizer import Visualizer
 from src.utils.VoxelHashingMap import VoxelHashingMap
@@ -475,7 +476,7 @@ class Mapper(object):
                         val.put_feature_by_id3d_mask(mask,vox_grad.clone().detach())
                         c[key] = val
 
-        return None
+        return loss
 
     def optimize_map_dense(self, num_joint_iters, lr_factor, idx, cur_gt_color, cur_gt_depth, gt_cur_c2w, keyframe_dict, keyframe_list, cur_c2w):
         """
@@ -799,6 +800,16 @@ class Mapper(object):
         self.estimate_c2w_list[0] = gt_c2w.cpu()
         init = True
         prev_idx = -1
+        total_loss = torch.tensor([0]).double().to('cuda:0')
+        if not self.coarse_mapper:
+            layout = {
+                "voxel plot": {
+                    "middle": ["Multiline", ["middle voxel size/dense", "middle voxel size/sparse"]],
+                    "fine": ["Multiline", ["fine voxel size/dense", "fine voxel size/sparse"]],
+                },
+            }
+            writer = SummaryWriter(log_dir = '../runs/mapper_params')
+            writer.add_custom_scalars(layout)
         while (1):
             while True:
                 idx = self.idx[0].clone()
@@ -857,7 +868,7 @@ class Mapper(object):
                 self.BA = (len(self.keyframe_list) > 4) and cfg['mapping']['BA'] and (
                     not self.coarse_mapper)
 
-                _ = self.optimize_map(num_joint_iters, lr_factor, idx, gt_color, gt_depth,
+                loss = self.optimize_map(num_joint_iters, lr_factor, idx, gt_color, gt_depth,
                                       gt_c2w, self.keyframe_dict, self.keyframe_list, cur_c2w=cur_c2w)
                 
                 print("line 859: finish optimize map")
@@ -872,7 +883,7 @@ class Mapper(object):
                         self.keyframe_list.append(idx)
                         self.keyframe_dict.append({'gt_c2w': gt_c2w.cpu(), 'idx': idx, 'color': gt_color.cpu(
                         ), 'depth': gt_depth.cpu(), 'est_c2w': cur_c2w.clone()})
-
+            total_loss += loss
             if self.low_gpu_mem:
                 torch.cuda.empty_cache()
 
@@ -882,6 +893,11 @@ class Mapper(object):
             print(self.mapping_first_frame[0])
 
             if not self.coarse_mapper:
+                writer.add_scalar('middle voxel size/sparse', self.c['grid_middle'].n_occupied, idx)
+                writer.add_scalar('middle voxel size/dense', self.c['grid_middle'].vox_idx.shape[0], idx)
+                writer.add_scalar('fine voxel size/sparse', self.c['grid_fine'].n_occupied, idx)
+                writer.add_scalar('fine voxel size/dense', self.c['grid_fine'].vox_idx.shape[0], idx)
+                
                 if ((not (idx == 0 and self.no_log_on_first_frame)) and idx % self.ckpt_freq == 0) \
                     or idx == self.n_img-1:
                     self.logger.log(idx, self.keyframe_dict, self.keyframe_list,
@@ -910,6 +926,9 @@ class Mapper(object):
                         self.mesher.get_mesh(mesh_out_file, self.c, self.decoders, self.keyframe_dict,
                                              self.estimate_c2w_list, idx, self.device, show_forecast=False, 
                                              clean_mesh=self.clean_mesh, get_mask_use_all_frames=True)
+                    print("The mean loss is {:f}".format(float(total_loss) /float(self.n_img)))
+                    for key, val in self.c.items():
+                        val.print_info()
                     break
 
             if idx == self.n_img-1:
