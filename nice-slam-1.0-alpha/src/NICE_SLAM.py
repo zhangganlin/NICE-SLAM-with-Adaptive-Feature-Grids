@@ -292,6 +292,7 @@ class NICE_SLAM():
                 p = mp.Process(target=self.mapping, args=(rank, ))
             elif rank == 2:
                 if self.coarse:
+                    continue
                     p = mp.Process(target=self.coarse_mapping, args=(rank, ))
                 else:
                     continue

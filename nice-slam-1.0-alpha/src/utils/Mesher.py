@@ -430,6 +430,7 @@ class Mesher(object):
                 z[~mask] = 100
 
             z = z.astype(np.float32)
+            print(z)
 
             try:
                 

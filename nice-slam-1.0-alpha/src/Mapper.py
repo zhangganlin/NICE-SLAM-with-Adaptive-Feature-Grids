@@ -535,9 +535,9 @@ class Mapper(object):
                     c2w = torch.cat([c2w, bottom], dim=0)
                     cur_c2w = c2w.clone()
         if self.BA:
-            return cur_c2w
+            return cur_c2w, loss
         else:
-            return None
+            return None, loss
 
     def run(self):
         cfg = self.cfg
@@ -546,6 +546,7 @@ class Mapper(object):
         self.estimate_c2w_list[0] = gt_c2w.cpu()
         init = True
         prev_idx = -1
+        total_loss = torch.tensor([0]).double().to('cuda:0')
         while (1):
             while True:
                 idx = self.idx[0].clone()
@@ -602,8 +603,9 @@ class Mapper(object):
                 self.BA = (len(self.keyframe_list) > 4) and cfg['mapping']['BA'] and (
                     not self.coarse_mapper)
 
-                _ = self.optimize_map(num_joint_iters, lr_factor, idx, gt_color, gt_depth,
+                _, loss = self.optimize_map(num_joint_iters, lr_factor, idx, gt_color, gt_depth,
                                       gt_c2w, self.keyframe_dict, self.keyframe_list, cur_c2w=cur_c2w)
+                total_loss += loss
                 if self.BA:
                     cur_c2w = _
                     self.estimate_c2w_list[idx] = cur_c2w
@@ -651,6 +653,7 @@ class Mapper(object):
                         self.mesher.get_mesh(mesh_out_file, self.c, self.decoders, self.keyframe_dict,
                                              self.estimate_c2w_list, idx, self.device, show_forecast=False, 
                                              clean_mesh=self.clean_mesh, get_mask_use_all_frames=True)
+                    print("The mean loss is {:f}".format(float(total_loss) / float(self.n_img)))
                     break
 
             if idx == self.n_img-1:
