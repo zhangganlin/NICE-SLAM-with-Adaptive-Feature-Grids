@@ -170,11 +170,12 @@ class Renderer(object):
         pts = rays_o[..., None, :] + rays_d[..., None, :] * \
             z_vals[..., :, None]  # [N_rays, N_samples+N_surface, 3]
         pointsf = pts.reshape(-1, 3)
-
-        pts_surface = rays_o[..., None, :] + rays_d[..., None, :] * \
-            z_vals_surface[..., :, None]  # [N_rays, N_surface, 3]
-        pointsf_surface = pts_surface.reshape(-1,3)
-
+        if N_surface > 0:
+            pts_surface = rays_o[..., None, :] + rays_d[..., None, :] * \
+                z_vals_surface[..., :, None]  # [N_rays, N_surface, 3]
+            pointsf_surface = pts_surface.reshape(-1,3)
+        else:
+            pointsf_surface = torch.zeros((0, 3)).to(device)
         # Since we don't use IMAP, we will ignore the case that N_importance > 0
         # if N_importance > 0:
         #     z_vals_mid = .5 * (z_vals[..., 1:] + z_vals[..., :-1])
