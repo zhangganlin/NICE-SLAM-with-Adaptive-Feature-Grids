@@ -801,6 +801,7 @@ class Mapper(object):
         init = True
         prev_idx = -1
         total_loss = torch.tensor([0]).double().to('cuda:0')
+        loss_cnt = 0
         if not self.coarse_mapper:
             layout = {
                 "voxel plot": {
@@ -884,6 +885,7 @@ class Mapper(object):
                         self.keyframe_dict.append({'gt_c2w': gt_c2w.cpu(), 'idx': idx, 'color': gt_color.cpu(
                         ), 'depth': gt_depth.cpu(), 'est_c2w': cur_c2w.clone()})
             total_loss += loss
+            loss_cnt += 1
             if self.low_gpu_mem:
                 torch.cuda.empty_cache()
 
@@ -926,7 +928,8 @@ class Mapper(object):
                         self.mesher.get_mesh(mesh_out_file, self.c, self.decoders, self.keyframe_dict,
                                              self.estimate_c2w_list, idx, self.device, show_forecast=False, 
                                              clean_mesh=self.clean_mesh, get_mask_use_all_frames=True)
-                    print("The mean loss is {:f}".format(float(total_loss) /float(self.n_img)))
+                    print("The mean loss is {:f}".format(float(total_loss) /float(loss_cnt)))
+                    print("The loss count is {:d}".format(loss_cnt))
                     for key, val in self.c.items():
                         val.print_info()
                     break
