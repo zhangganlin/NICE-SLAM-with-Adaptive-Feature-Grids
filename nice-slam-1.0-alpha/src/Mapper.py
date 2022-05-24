@@ -547,6 +547,7 @@ class Mapper(object):
         init = True
         prev_idx = -1
         total_loss = torch.tensor([0]).double().to('cuda:0')
+        loss_cnt = 0
         while (1):
             while True:
                 idx = self.idx[0].clone()
@@ -606,6 +607,7 @@ class Mapper(object):
                 _, loss = self.optimize_map(num_joint_iters, lr_factor, idx, gt_color, gt_depth,
                                       gt_c2w, self.keyframe_dict, self.keyframe_list, cur_c2w=cur_c2w)
                 total_loss += loss
+                loss_cnt += 1
                 if self.BA:
                     cur_c2w = _
                     self.estimate_c2w_list[idx] = cur_c2w
@@ -653,7 +655,8 @@ class Mapper(object):
                         self.mesher.get_mesh(mesh_out_file, self.c, self.decoders, self.keyframe_dict,
                                              self.estimate_c2w_list, idx, self.device, show_forecast=False, 
                                              clean_mesh=self.clean_mesh, get_mask_use_all_frames=True)
-                    print("The mean loss is {:f}".format(float(total_loss) / float(self.n_img)))
+                    print("The mean loss is {:f}".format(float(total_loss) / float(loss_cnt)))
+                    print("The loss count is {:d}".format(loss_cnt))
                     break
 
             if idx == self.n_img-1:
