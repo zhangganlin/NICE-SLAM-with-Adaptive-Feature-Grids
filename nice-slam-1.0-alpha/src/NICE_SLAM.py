@@ -238,6 +238,8 @@ class NICE_SLAM():
         self.grid_init_size = val_shape[-3]*val_shape[-2]*val_shape[-1]
         
         middle_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim, self.bound[:,0], middle_grid_len,"middleMap")
+        
+        middle_val.if_invalid_allocate(torch.arange(0,self.grid_init_size,2))
         c[middle_key] = middle_val
 
         fine_key = 'grid_fine'
@@ -250,6 +252,9 @@ class NICE_SLAM():
         self.grid_init_size = val_shape[-3]*val_shape[-2]*val_shape[-1]
         
         fine_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim, self.bound[:,0], fine_grid_len, "fineMap")
+        
+        fine_val.if_invalid_allocate(torch.arange(0,self.grid_init_size,2))
+        
         c[fine_key] = fine_val
 
         color_key = 'grid_color'
@@ -262,6 +267,9 @@ class NICE_SLAM():
         self.grid_init_size = val_shape[-3]*val_shape[-2]*val_shape[-1]
         
         color_val = VoxelHashingMap(val_shape[-3:], self.grid_init_size, c_dim, self.bound[:,0], color_grid_len, "colorMap")
+        
+        color_val.if_invalid_allocate(torch.arange(0,self.grid_init_size,2))
+        
         c[color_key] = color_val
 
         self.shared_c = c

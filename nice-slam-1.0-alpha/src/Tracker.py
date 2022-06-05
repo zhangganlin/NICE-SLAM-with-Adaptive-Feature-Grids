@@ -87,6 +87,7 @@ class Tracker(object):
         H, W, fx, fy, cx, cy = self.H, self.W, self.fx, self.fy, self.cx, self.cy
         optimizer.zero_grad()
         c2w = get_camera_from_tensor(camera_tensor)
+        # print(c2w)
         Wedge = self.ignore_edge_W
         Hedge = self.ignore_edge_H
         batch_rays_o, batch_rays_d, batch_gt_depth, batch_gt_color = get_samples(
@@ -107,11 +108,13 @@ class Tracker(object):
         # ret = self.renderer.render_batch_ray(
         #     self.c, self.decoders, batch_rays_d, batch_rays_o,  self.device, stage='color',  gt_depth=batch_gt_depth)
 
-        pointsf,z_vals,_ = self.renderer.sample_batch_ray( batch_rays_d, batch_rays_o, self.device, 'color', gt_depth=batch_gt_depth)
-        ret = self.renderer.render_batch_ray(self.c, self.decoders, self.device, 'color', 
-                                             pointsf,z_vals,batch_rays_o,batch_rays_d,
-                                             gt_depth=batch_gt_depth)
+        # pointsf,z_vals,related_surface = self.renderer.sample_batch_ray( batch_rays_d, batch_rays_o, self.device, 'color', gt_depth=batch_gt_depth)    
+        
+        # ret = self.renderer.render_batch_ray(self.c, self.decoders, self.device, 'color', 
+                                            #  pointsf,z_vals,batch_rays_o,batch_rays_d,
+                                            #  gt_depth=batch_gt_depth)
 
+        ret = self.renderer.render_batch_ray_dense_map(self.c, self.decoders, batch_rays_d, batch_rays_o, self.device, stage = 'color', gt_depth=batch_gt_depth)
         depth, uncertainty, color = ret
 
         uncertainty = uncertainty.detach()
@@ -152,6 +155,7 @@ class Tracker(object):
             self.prev_mapping_idx = self.mapping_idx[0].clone()
 
     def run(self):
+        # torch.autograd.set_detect_anomaly(True)
         device = self.device
         self.c = {}
         if self.verbose:
@@ -194,18 +198,18 @@ class Tracker(object):
             
             
             
-            if idx == 0 or self.gt_camera:
+            if idx ==0 or self.gt_camera:
                 c2w = gt_c2w
                 if not self.no_vis_on_first_frame:
                     self.visualizer.vis(
                         idx, 0, gt_depth, gt_color, c2w, self.c, self.decoders)
             
-            self.idx[0] = idx
-            camera_tensor = get_tensor_from_camera(gt_c2w)
-            self.visualizer.vis(idx, 0, gt_depth, gt_color, gt_c2w, self.c, self.decoders)
-            continue
-            if True:
-                pass
+            # self.idx[0] = idx
+            # camera_tensor = get_tensor_from_camera(gt_c2w)
+            # self.visualizer.vis(idx, 0, gt_depth, gt_color, gt_c2w, self.c, self.decoders)
+            # continue
+            # if True:
+            #     pass
             
             else:
                 gt_camera_tensor = get_tensor_from_camera(gt_c2w)
@@ -219,6 +223,8 @@ class Tracker(object):
 
                 camera_tensor = get_tensor_from_camera(
                     estimated_new_cam_c2w.detach())
+                # camera_tensor = gt_camera_tensor
+                
                 if self.seperate_LR:
                     camera_tensor = camera_tensor.to(device).detach()
                     T = camera_tensor[-3:]

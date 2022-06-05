@@ -19,7 +19,7 @@ class Renderer(object):
 
         self.H, self.W, self.fx, self.fy, self.cx, self.cy = slam.H, slam.W, slam.fx, slam.fy, slam.cx, slam.cy
 
-    def eval_points(self, p, decoders, c=None, stage='color', device='cuda:0'):
+    def eval_points(self, p, decoders, c=None, stage='color', device='cuda:0', tracker = False):
         """
         Evaluates the occupancy and/or color value for the points.
 
@@ -48,7 +48,7 @@ class Renderer(object):
             pi = pi.unsqueeze(0)
             
             if self.nice:
-                ret_temp = decoders(pi, c_grid=c, stage=stage)
+                ret_temp = decoders(pi, c_grid=c, stage=stage, tracker = tracker)
                 ret[mask] = ret_temp.squeeze(0)
                 
             if len(ret.shape) == 1 and ret.shape[0] == 4:
@@ -333,7 +333,7 @@ class Renderer(object):
             z_vals[..., :, None]  # [N_rays, N_samples+N_surface, 3]
         pointsf = pts.reshape(-1, 3)
 
-        raw = self.eval_points(pointsf, decoders, c, stage, device)
+        raw = self.eval_points(pointsf, decoders, c, stage, device, tracker=True)
         raw = raw.reshape(N_rays, N_samples+N_surface, -1)
 
         depth, uncertainty, color, weights = raw2outputs_nerf_color(
@@ -348,7 +348,7 @@ class Renderer(object):
             pts = rays_o[..., None, :] + \
                 rays_d[..., None, :] * z_vals[..., :, None]
             pts = pts.reshape(-1, 3)
-            raw = self.eval_points(pts, decoders, c, stage, device)
+            raw = self.eval_points(pts, decoders, c, stage, device, tracker= True)
             raw = raw.reshape(N_rays, N_samples+N_importance+N_surface, -1)
 
             depth, uncertainty, color, weights = raw2outputs_nerf_color(

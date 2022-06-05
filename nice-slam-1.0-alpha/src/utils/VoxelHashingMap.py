@@ -86,11 +86,14 @@ class VoxelHashingMap(object):
         :param points: (N, 3) 3d coordinates of target points
         :return: 8 neighbors for each points (id1d) (N(8-m),)
         """
-        neighbor = torch.Tensor([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1], [1, 1, 1]])
+        neighbor = torch.Tensor([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], 
+                                 [1, 1, 0], [1, 0, 1], [0, 1, 1], [1, 1, 1]
+                                 ])
+        neighbors_num = 8
         neighbor = neighbor.to(self.device)
         voxel_xyz_id = self.point3d_to_id3d(points)
         
-        voxel_xyz_id = voxel_xyz_id.repeat(1, 8).reshape(voxel_xyz_id.shape[0] * 8, voxel_xyz_id.shape[1])
+        voxel_xyz_id = voxel_xyz_id.repeat(1, neighbors_num).reshape(voxel_xyz_id.shape[0] * neighbors_num, voxel_xyz_id.shape[1])
         neighbor = neighbor.repeat(points.shape[0], 1)
         res = voxel_xyz_id + neighbor
 

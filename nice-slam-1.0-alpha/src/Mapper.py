@@ -860,8 +860,10 @@ class Mapper(object):
                 lr_factor = cfg['mapping']['lr_first_factor']
                 num_joint_iters = cfg['mapping']['iters_first']
 
-            # cur_c2w = self.estimate_c2w_list[idx].to(self.device)
-            cur_c2w = gt_c2w
+            cur_c2w = self.estimate_c2w_list[idx].to(self.device)
+            print(cur_c2w)
+            print(gt_c2w)
+            # cur_c2w = gt_c2w
             num_joint_iters = num_joint_iters//outer_joint_iters
              
             for outer_joint_iter in range(outer_joint_iters):
@@ -909,7 +911,7 @@ class Mapper(object):
                 self.mapping_idx[0] = idx
                 self.mapping_cnt[0] += 1
 
-                if (idx % self.mesh_freq == 0) and (not (idx == 0 and self.no_mesh_on_first_frame)):
+                if (idx % self.mesh_freq == 0) and (not (idx == 0)):
                     mesh_out_file = f'{self.output}/mesh/{idx:05d}_mesh.ply'
                     print("generating mesh...")
                     self.mesher.get_mesh(mesh_out_file, self.c, self.decoders, self.keyframe_dict, self.estimate_c2w_list,
