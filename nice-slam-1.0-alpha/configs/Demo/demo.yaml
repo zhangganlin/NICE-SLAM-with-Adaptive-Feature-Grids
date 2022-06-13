@@ -13,13 +13,13 @@ tracking:
   const_speed_assumption: True
   lr: 0.0005      
   pixels: 1000
-  iters: 30
+  iters: 50
 mapping:
   every_frame: 5
-  vis_freq: 500
-  vis_inside_freq: 30
-  mesh_freq: 500
-  ckpt_freq: 500
+  vis_freq: 50
+  vis_inside_freq: 25
+  mesh_freq: 50
+  ckpt_freq: 50
   keyframe_every: 50
   mapping_window_size: 10
   pixels: 1000

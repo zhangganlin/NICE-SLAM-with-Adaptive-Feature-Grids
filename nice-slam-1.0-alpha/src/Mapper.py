@@ -861,8 +861,6 @@ class Mapper(object):
                 num_joint_iters = cfg['mapping']['iters_first']
 
             cur_c2w = self.estimate_c2w_list[idx].to(self.device)
-            print(cur_c2w)
-            print(gt_c2w)
             # cur_c2w = gt_c2w
             num_joint_iters = num_joint_iters//outer_joint_iters
              
