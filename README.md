@@ -51,9 +51,9 @@ Or you can use
 ```
 sudo apt-get install libopenexr-dev
 conda env create -f ./nice-slam-1.0-alpha/environment.yaml
+conda activate nice-slam
 pip install einops
 pip install torch torchvision
-conda activate nice-slam
 ```
 
 ## Demo
