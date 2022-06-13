@@ -36,7 +36,7 @@ Our project is mainly about reducing the memory usage of nice-slam. Our main con
 
 ## Installation
 
-First you have to make sure that you have all dependencies in place. The simplest way to do so, is to use [anaconda](https://www.anaconda.com/).
+First you have to make sure that you have all dependencies in place. The simplest way to do so, is to use [Anaconda](https://www.anaconda.com/).
 
 You can create an anaconda environment called `nice-slam`. For linux, you need to install **libopenexr-dev** before creating the environment.
 
@@ -72,7 +72,7 @@ python visualizer.py configs/Demo/demo.yaml
 
 **NOTE:** This is for demonstration only, its configuration/performance may be different from our paper.
 
-Alternatively, you can use [mesh lab](https://www.meshlab.net/) to visualize the mesh  `output/Demo/mesh/final_mesh.ply` . 
+Alternatively, you can use [MeshLab](https://www.meshlab.net/) to visualize the mesh  `output/Demo/mesh/final_mesh.ply` . 
 
 <img src="assets/Screen Recording 2022-06-13 at 1.35.15 PM.gif" alt="Screen Recording 2022-06-13 at 1.35.15 PM" style="zoom:30%;" />
 
