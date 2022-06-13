@@ -95,5 +95,5 @@ python src/tools/eval_recon.py --rec_mesh output/Replica/room0/mesh/final_mesh_e
 
 ## Acknowledgement
 
-- I express gratitude to [NICE-SLAM](https://pengsongyou.github.io/nice-slam), we benefit a lot from both their papers and codes.
-- Thanks to [Songyou Peng](https://pengsongyou.github.io/). He has provided many insightful guidance about how to integrate voxel hashing into the nice-slam framework. . I would like to express my sincere appreciation to [Zihan Zhu](https://zzh2000.github.io/), who has provided many intelligent suggestions on this project. 
+- I express gratitude to [NICE-SLAM](https://pengsongyou.github.io/nice-slam), we benefit a lost from both their papers and codes.
+- Thanks to [Songyou Peng](https://pengsongyou.github.io/). He has provided many insightful guidance about how to integrate voxel hashing into the nice-slam framework. We would like to express our sincere appreciation to [Zihan Zhu](https://zzh2000.github.io/), who has provided many intelligent suggestions on this project. 
