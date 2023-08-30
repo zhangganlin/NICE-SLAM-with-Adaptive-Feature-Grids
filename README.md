@@ -1,6 +1,6 @@
 # 3D Vision 2022 Project: NICE-SLAM with Adaptive Feature Grids
 
-Team 18: **[Ganlin Zhang](https://ganlinzhang.xyz), [Deheng Zhang](https://dehezhang2.github.io/), [Feichi Lu](https://github.com/Caroline171840094), [Anqi Li](https://github.com/AngieALAL)**
+Authors: **[Ganlin Zhang](https://ganlinzhang.xyz), [Deheng Zhang](https://dehezhang2.github.io/), [Feichi Lu](https://github.com/Caroline171840094), [Anqi Li](https://github.com/AngieALAL)**
 <!---  
 ## Milestones
 
